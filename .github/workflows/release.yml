@@ -26,7 +26,7 @@ jobs:
 
       - name: Build Steel Control
         run: |
-          go build -ldflags="-s -w -H windowsgui" -o Produtividade.exe
+          go build -ldflags="-s -w -H windowsgui" -o Produtividade.exe main.go
 
       - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
