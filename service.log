@@ -1,0 +1,500 @@
+[DataCollector] 2025/12/10 14:54:43 main.go:1256: ✅ 6 scripts registrados com configuração FTP (Server: 172.20.29.199, User: steel)
+[DataCollector] 2025/12/10 14:54:43 main.go:1003: 📊 DB Pool configurado: MaxOpen=27, MaxIdle=1, OpenConns=0
+[DataCollector] 2025/12/10 14:54:44 main.go:353: Machine ID carregado do arquivo: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:54:44 main.go:390: Machine ID válido encontrado no arquivo: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:54:44 main.go:3029: Sincronizando funcionário: gusttavo
+[DataCollector] 2025/12/10 14:54:44 main.go:3041: ✅ Funcionário sincronizado: gusttavo (ID: 9270b695-641e-47f7-a441-53c98e8e7173)
+[DataCollector] 2025/12/10 14:54:44 main.go:960: Serviço inicializado com sucesso
+[DataCollector] 2025/12/10 14:54:44 main.go:1503: 🔄 Tracking de scripts resetado - todos os scripts serão executados na próxima verificação
+[DataCollector] 2025/12/10 14:54:44 main.go:1405: 📅 Verificando scripts diários (8 scripts)
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'machines' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'hardware_inventory' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'software_inventory' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'antivirus_status' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'windows_updates' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'login_attempts' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'user_sessions' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1419: 📄 Executando script diário: machines
+[DataCollector] 2025/12/10 14:54:44 main.go:1419: 📄 Executando script diário: hardware_inventory
+[DataCollector] 2025/12/10 14:54:44 main.go:1419: 📄 Executando script diário: antivirus_status
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: antivirus_status
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'antivirus_status' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: machines
+[DataCollector] 2025/12/10 14:54:44 main.go:1424: ❌ Script diário 'antivirus_status' retornou erro: script 'antivirus_status' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1419: 📄 Executando script diário: login_attempts
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: login_attempts
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'login_attempts' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1424: ❌ Script diário 'login_attempts' retornou erro: script 'login_attempts' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1419: 📄 Executando script diário: software_inventory
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: software_inventory
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'software_inventory' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1424: ❌ Script diário 'software_inventory' retornou erro: script 'software_inventory' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: hardware_inventory
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'hardware_inventory' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1424: ❌ Script diário 'hardware_inventory' retornou erro: script 'hardware_inventory' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1419: 📄 Executando script diário: user_sessions
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: user_sessions
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'user_sessions' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1424: ❌ Script diário 'user_sessions' retornou erro: script 'user_sessions' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'system_logs' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1419: 📄 Executando script diário: system_logs
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: system_logs
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'system_logs' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1424: ❌ Script diário 'system_logs' retornou erro: script 'system_logs' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1419: 📄 Executando script diário: windows_updates
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: windows_updates
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'windows_updates' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1424: ❌ Script diário 'windows_updates' retornou erro: script 'windows_updates' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1291: ✅ Script 'machines' executado com sucesso: 1 itens coletados
+[DataCollector] 2025/12/10 14:54:44 main.go:1968: Processando 1 registros do script machines
+[DataCollector] 2025/12/10 14:54:44 main.go:1971: Processando registro 1: map[domain_name:0xc000098140 hostname:DESKTOP-J5ITJK9 ip_address:0xc000098100 mac_address:0xc000098110 status:active]
+[DataCollector] 2025/12/10 14:54:44 main.go:1991: Hostname encontrado: 'DESKTOP-J5ITJK9'
+[DataCollector] 2025/12/10 14:54:44 main.go:2031: Dados extraídos - Hostname: 'DESKTOP-J5ITJK9', IP: '192.168.46.172', MAC: '74:13:ea:8f:e3:05', Domain: 'docker.internal', Status: 'active'
+[DataCollector] 2025/12/10 14:54:44 main.go:2056: Dados da máquina DESKTOP-J5ITJK9 atualizados com sucesso no banco de dados
+[DataCollector] 2025/12/10 14:54:44 main.go:1437: ✅ Script diário 'machines' executado e salvo com sucesso
+[DataCollector] 2025/12/10 14:54:44 main.go:1456: ⏰ Verificando scripts periódicos (5 scripts, intervalo: 15 min)
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'user_activity' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'application_usage' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'browser_history' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1471: 📄 Executando script periódico: user_activity
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: user_activity
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'user_activity' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1476: ❌ Script periódico 'user_activity' retornou erro: script 'user_activity' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'file_downloads' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1351: ✨ Script 'system_metrics' nunca foi executado - EXECUTANDO
+[DataCollector] 2025/12/10 14:54:44 main.go:1471: 📄 Executando script periódico: browser_history
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: browser_history
+[DataCollector] 2025/12/10 14:54:44 main.go:1471: 📄 Executando script periódico: file_downloads
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: file_downloads
+[DataCollector] 2025/12/10 14:54:44 main.go:1471: 📄 Executando script periódico: system_metrics
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: system_metrics
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'system_metrics' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'browser_history' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1476: ❌ Script periódico 'browser_history' retornou erro: script 'browser_history' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1471: 📄 Executando script periódico: application_usage
+[DataCollector] 2025/12/10 14:54:44 main.go:1270: 📍 Executando script: application_usage
+[DataCollector] 2025/12/10 14:54:44 main.go:1276: ❌ script 'file_downloads' não encontrado
+[DataCollector] 2025/12/10 14:54:44 main.go:1476: ❌ Script periódico 'system_metrics' retornou erro: script 'system_metrics' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1476: ❌ Script periódico 'file_downloads' retornou erro: script 'file_downloads' não encontrado - NÃO será marcado como executado
+[DataCollector] 2025/12/10 14:54:44 main.go:1291: ✅ Script 'application_usage' executado com sucesso: 10 itens coletados
+[DataCollector] 2025/12/10 14:54:44 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:54:44 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:54:45 main.go:4127: Application usage registrado: gusttavo - Arc (33930s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:45 main.go:4127: Application usage registrado: gusttavo - WhatsApp (16969s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:46 main.go:4127: Application usage registrado: gusttavo - SQLyog Community 64 - [GrupoPN/produtividade - root@172.20.29.199* ] (33325s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:46 main.go:4127: Application usage registrado: gusttavo - Raycast (35223s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:46 main.go:4127: Application usage registrado: gusttavo - RaycastUIAccessHelperWindow (35221s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:46 main.go:4127: Application usage registrado: gusttavo - Iniciar (33367s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:47 main.go:4127: Application usage registrado: gusttavo - produtividade — main.go (32150s ativo, foreground: true, state: foreground)
+[DataCollector] 2025/12/10 14:54:47 main.go:3931: Encontrados 2 aplicativos improdutivos para o funcionário gusttavo (função: 54a45ef1-d450-11f0-8dc1-00155d64c604)
+[DataCollector] 2025/12/10 14:54:47 main.go:4153: 🚨 APP IMPRODUTIVO DETECTADO EM FOREGROUND: produtividade — main.go (processo: Zed) - Usuário: gusttavo
+[DataCollector] 2025/12/10 14:54:47 main.go:3223: 📸 Tirando print do app improdutivo: produtividade — main.go (processo: Zed, usuário: gusttavo)
+[DataCollector] 2025/12/10 14:54:47 main.go:1270: 📍 Executando script: screenshot_improdutivo
+[DataCollector] 2025/12/10 14:54:48 main.go:4127: Application usage registrado: gusttavo - Experiência de Entrada do Windows (33355s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:48 main.go:4127: Application usage registrado: gusttavo - RaycastNodeGracefulShutdownWindow (35223s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:48 main.go:4127: Application usage registrado: gusttavo - WhatsApp (16969s ativo, foreground: false, state: background)
+[DataCollector] 2025/12/10 14:54:48 main.go:1489: ✅ Script periódico 'application_usage' executado e salvo com sucesso
+[DataCollector] 2025/12/10 14:54:48 main.go:708: 🚀 Iniciando tarefas em background...
+[DataCollector] 2025/12/10 14:54:48 main.go:842: ✅ Todas as goroutines foram iniciadas com sucesso!
+[DataCollector] 2025/12/10 14:54:48 main.go:738: 📅 Goroutine de scripts diários INICIADA (intervalo: 1 hora)
+[DataCollector] 2025/12/10 14:54:48 main.go:787: 📸 Goroutine de gerenciamento de capturas INICIADA
+[DataCollector] 2025/12/10 14:54:48 main.go:826: 🔄 Goroutine de verificação de updates INICIADA (intervalo: 12 horas)
+[DataCollector] 2025/12/10 14:54:48 main.go:714: 🔍 Goroutine de verificação de tela INICIADA (intervalo: 30s)
+[DataCollector] 2025/12/10 14:54:48 main.go:790: ⏳ Aguardando 10 segundos para garantir inicialização completa...
+[DataCollector] 2025/12/10 14:54:48 main.go:764: ⏰ Goroutine de scripts periódicos INICIADA (intervalo: 15m0s)
+[DataCollector] 2025/12/10 14:54:54 main.go:1291: ✅ Script 'screenshot_improdutivo' executado com sucesso: 1 itens coletados
+[DataCollector] 2025/12/10 14:54:54 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:54:54 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:54:55 main.go:3326: ⚠️ Erro ao buscar tempo de uso: sql: Scan error on column index 0, name "minutos": converting driver.Value type []uint8 ("535.8333") to a int32: invalid syntax
+[DataCollector] 2025/12/10 14:54:55 main.go:3333: 
+=== PREPARANDO INSERT PRINT IMPRODUTIVO ===
+ID: e0deb79b-ee77-4f4f-b0d6-1a75bc16dce6
+MachineID: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+Username: gusttavo
+FuncionarioID: 9270b695-641e-47f7-a441-53c98e8e7173 (valid: true)
+ApplicationName: produtividade — main.go
+ProcessName: Zed
+ScreenshotPath: ftp://172.20.29.199/ftp/DESKTOP-J5ITJK9/screenshot_improdutivo_2025-12-10_14-54-47.jpg
+ThumbPath: ftp://172.20.29.199/ftp/DESKTOP-J5ITJK9/screenshot_improdutivo_2025-12-10_14-54-47_thumb.jpg
+CaptureTime: 2025-12-10 14:54:54
+FileSize: 0 bytes (valid: false)
+CompressionType: jpeg
+MonitorCount: 1
+TempoUso: 0 minutos (valid: false)
+Hostname: DESKTOP-J5ITJK9
+=========================================
+[DataCollector] 2025/12/10 14:54:55 main.go:3413: ✅ Print improdutivo salvo no banco: app=produtividade — main.go, processo=Zed, usuário=gusttavo, tempo_uso=0 min, path=ftp://172.20.29.199/ftp/DESKTOP-J5ITJK9/screenshot_improdutivo_2025-12-10_14-54-47.jpg
+[DataCollector] 2025/12/10 14:54:55 main.go:3246: ✅ Print improdutivo salvo: produtividade — main.go (processo: Zed)
+[DataCollector] 2025/12/10 14:54:58 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:54:58 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:54:58 main.go:800: ✅ Machine ID confirmado: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:54:58 main.go:816: 🎯 Iniciando CaptureManager.Run()...
+[DataCollector] 2025/12/10 14:54:58 main.go:1528: 🎯 CaptureManager: Iniciando gerenciamento
+[DataCollector] 2025/12/10 14:54:58 main.go:1553: 🔄 [14:54:58] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:54:58 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:54:58 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:54:58 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:54:58 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:54:58 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:54:58 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:54:58 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:54:58 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:54:58 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:54:58 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:54:58 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:54:58 main.go:1606: 🔄 CaptureManager: Configuração mudou, reiniciando capturas...
+[DataCollector] 2025/12/10 14:54:58 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:54:58 main.go:1638: 🚀 Iniciando gravações (intervalo: 120s, duração: 30s)...
+[DataCollector] 2025/12/10 14:54:58 main.go:1712: 🎬 CaptureManager: Iniciando gravações (intervalo: 2m0s, duração: 30s)
+[DataCollector] 2025/12/10 14:54:58 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:54:58 main.go:1797: 🎬 Executando gravação...
+[DataCollector] 2025/12/10 14:54:58 main.go:1811: 🎥 Usando OBS para gravação (Camera=true, Micro=true, Duração=30s)
+[DataCollector] 2025/12/10 14:54:58 main.go:1833: 🎥 Iniciando gravação OBS: duration=30s, camera=true, micro=true
+[DataCollector] 2025/12/10 14:54:58 main.go:1270: 📍 Executando script: obs_record
+[DataCollector] 2025/12/10 14:55:08 main.go:1553: 🔄 [14:55:08] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:55:08 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:55:08 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:08 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:08 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:55:08 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:55:08 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:55:08 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:55:08 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:55:08 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:55:08 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:55:08 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:55:08 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:55:08 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:55:08 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:55:08 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:55:18 main.go:1553: 🔄 [14:55:18] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:55:18 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:55:18 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:18 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:18 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:55:18 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:19 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:55:19 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:55:19 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:55:19 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:55:19 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:55:19 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:55:19 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:55:19 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:55:19 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:55:19 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:55:19 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:55:19 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:55:28 main.go:1553: 🔄 [14:55:28] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:55:28 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:55:28 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:28 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:28 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:55:28 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:55:28 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:55:28 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:55:28 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:55:28 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:55:28 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:55:28 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:55:28 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:55:28 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:55:28 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:55:28 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:55:38 main.go:1553: 🔄 [14:55:38] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:55:38 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:55:38 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:38 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:38 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:55:38 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:55:38 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:55:38 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:55:38 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:55:38 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:55:38 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:55:38 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:55:38 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:55:38 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:55:38 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:55:38 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:55:48 main.go:1553: 🔄 [14:55:48] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:55:48 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:55:48 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:48 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:48 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:55:48 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:49 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:55:49 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:55:49 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:55:49 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:55:49 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:55:49 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:55:49 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:55:49 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:55:49 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:55:49 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:55:49 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:55:49 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:55:58 main.go:1553: 🔄 [14:55:58] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:55:58 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:55:58 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:55:58 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:00 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:56:00 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:56:00 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:56:00 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:56:00 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:56:00 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:56:00 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:56:00 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:56:00 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:56:00 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:56:00 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:56:00 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:56:07 main.go:1291: ✅ Script 'obs_record' executado com sucesso: 1 itens coletados
+[DataCollector] 2025/12/10 14:56:07 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:07 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:07 main.go:5508: Inserindo ScreenRecording[1]: ID=91998e84-df08-4506-b4dd-6b8695a8be92, MachineID=fbd6c91b-a0ed-474f-af97-cc68553f0aee, User=gusttavo, Video=ftp://172.20.29.199/ftp/DESKTOP-J5ITJK9/obs_record_2025-12-10_14-55-46.mp4, Thumb=ftp://172.20.29.199/ftp/DESKTOP-J5ITJK9/obs_record_2025-12-10_14-55-46_thumb.png, Size=0, Duration=0, CaptureTime=2025-12-10T14:56:01
+[DataCollector] 2025/12/10 14:56:07 main.go:5539: ✅ ScreenRecording[1] inserido com sucesso (User=gusttavo, Video=ftp://172.20.29.199/ftp/DESKTOP-J5ITJK9/obs_record_2025-12-10_14-55-46.mp4)
+[DataCollector] 2025/12/10 14:56:07 main.go:1841: ✅ Gravação OBS salva com sucesso
+[DataCollector] 2025/12/10 14:56:08 main.go:1553: 🔄 [14:56:08] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:56:08 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:08 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:08 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:08 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:56:08 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:56:08 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:56:08 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:56:08 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:56:08 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:56:08 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:56:08 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:56:08 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:56:08 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:56:08 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:56:08 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:56:18 main.go:1553: 🔄 [14:56:18] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:56:18 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:18 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:18 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:18 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:18 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:19 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:56:19 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:56:19 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:56:19 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:56:19 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:56:19 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:56:19 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:56:19 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:56:19 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:56:19 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:56:19 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:56:19 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:56:28 main.go:1553: 🔄 [14:56:28] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:56:28 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:28 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:28 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:28 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:56:28 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:56:28 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:56:28 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:56:28 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:56:28 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:56:28 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:56:28 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:56:28 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:56:28 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:56:28 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:56:28 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:56:38 main.go:1553: 🔄 [14:56:38] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:56:38 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:38 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:38 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:38 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:56:38 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:56:38 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:56:38 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:56:38 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:56:38 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:56:38 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:56:38 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:56:38 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:56:38 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:56:38 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:56:38 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:56:48 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:48 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:48 main.go:1553: 🔄 [14:56:48] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:56:48 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:48 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:48 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:48 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:56:48 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:56:48 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:56:48 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:56:48 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:56:48 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:56:48 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:56:48 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:56:48 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:56:48 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:56:48 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:56:48 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:56:58 main.go:1797: 🎬 Executando gravação...
+[DataCollector] 2025/12/10 14:56:58 main.go:1811: 🎥 Usando OBS para gravação (Camera=true, Micro=true, Duração=30s)
+[DataCollector] 2025/12/10 14:56:58 main.go:1553: 🔄 [14:56:58] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:56:58 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:56:58 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:58 main.go:1833: 🎥 Iniciando gravação OBS: duration=30s, camera=true, micro=true
+[DataCollector] 2025/12/10 14:56:58 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:56:58 main.go:1270: 📍 Executando script: obs_record
+[DataCollector] 2025/12/10 14:56:58 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:56:58 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:56:58 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:56:58 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:56:58 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:56:58 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:56:58 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:56:58 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:56:58 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:56:58 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:56:58 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:56:58 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:57:08 main.go:1553: 🔄 [14:57:08] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:57:08 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:57:08 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:08 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:08 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:57:08 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:57:08 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:57:08 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:57:08 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:57:08 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:57:08 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:57:08 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:57:08 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:57:08 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:57:08 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:57:08 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:57:18 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:57:18 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:18 main.go:1553: 🔄 [14:57:18] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:57:18 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:57:18 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:18 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:19 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:57:19 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:57:19 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:57:19 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:57:19 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:57:19 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:57:19 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:57:19 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:57:19 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:57:19 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:57:19 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:57:19 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:57:28 main.go:1553: 🔄 [14:57:28] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:57:28 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:57:28 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:28 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:28 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:57:28 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:57:28 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:57:28 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:57:28 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:57:28 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:57:28 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:57:28 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:57:28 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:57:28 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:57:28 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:57:28 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:57:38 main.go:1553: 🔄 [14:57:38] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:57:38 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:57:38 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:38 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:38 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:57:38 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:57:38 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:57:38 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:57:38 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:57:38 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:57:38 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:57:38 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:57:38 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:57:38 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:57:38 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:57:38 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:57:48 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:57:48 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:48 main.go:1553: 🔄 [14:57:48] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:57:48 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:57:48 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:48 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:49 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:57:49 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:57:49 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:57:49 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:57:49 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:57:49 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:57:49 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:57:49 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:57:49 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:57:49 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:57:49 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:57:49 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:57:52 main.go:1285: ❌ erro ao executar script 'obs_record': erro ao localizar gravação: nenhuma gravação recente encontrada
+[DataCollector] 2025/12/10 14:57:52 main.go:5465: Script screen_recordings retornou erro: erro ao executar script 'obs_record': erro ao localizar gravação: nenhuma gravação recente encontrada
+[DataCollector] 2025/12/10 14:57:52 main.go:1841: ✅ Gravação OBS salva com sucesso
+[DataCollector] 2025/12/10 14:57:58 main.go:1553: 🔄 [14:57:58] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:57:58 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:57:58 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:58 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:57:58 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:57:58 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:57:58 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:57:58 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:57:58 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:57:58 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:57:58 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:57:58 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:57:58 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:57:58 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:57:58 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:57:58 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:58:08 main.go:1553: 🔄 [14:58:08] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:58:08 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:58:08 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:58:08 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:58:09 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:58:09 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:58:09 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:58:09 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:58:09 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:58:09 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:58:09 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:58:09 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:58:09 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:58:09 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:58:09 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:58:09 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true
+[DataCollector] 2025/12/10 14:58:18 main.go:1553: 🔄 [14:58:18] Verificando configuração de capturas...
+[DataCollector] 2025/12/10 14:58:18 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:58:18 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:58:18 main.go:1568: ✅ Machine ID obtido: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:58:18 main.go:446: DEBUG: getCurrentMachineID iniciado
+[DataCollector] 2025/12/10 14:58:18 main.go:450: DEBUG: Machine ID encontrado no cache: fbd6c91b-a0ed-474f-af97-cc68553f0aee
+[DataCollector] 2025/12/10 14:58:18 main.go:1193: Configuração ativa: true
+[DataCollector] 2025/12/10 14:58:18 main.go:1590: 📋 CaptureManager: Configuração ATIVA encontrada:
+[DataCollector] 2025/12/10 14:58:18 main.go:1591:    • Type: record
+[DataCollector] 2025/12/10 14:58:18 main.go:1592:    • PictureTime: 30 segundos
+[DataCollector] 2025/12/10 14:58:18 main.go:1593:    • RecordTime: 120 segundos
+[DataCollector] 2025/12/10 14:58:18 main.go:1594:    • RecordingTiming: 30 segundos
+[DataCollector] 2025/12/10 14:58:18 main.go:1595:    • RecordCamera: true
+[DataCollector] 2025/12/10 14:58:18 main.go:1596:    • RecordMicro: true
+[DataCollector] 2025/12/10 14:58:18 main.go:1610: ✅ Configuração não mudou, verificando estado atual...
+[DataCollector] 2025/12/10 14:58:18 main.go:1627: ℹ️ Type atual: 'record' (não é 'picture'), screenshots não serão iniciados
+[DataCollector] 2025/12/10 14:58:18 main.go:1641: ✅ Gravações já ativas (intervalo: 120s)
+[DataCollector] 2025/12/10 14:58:18 main.go:1650: 📊 Estado atual: Screenshots=false, Recordings=true

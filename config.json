@@ -1,0 +1,16 @@
+{
+  "database": {
+    "driver": "mysql",
+    "host": "172.20.29.199",
+    "port": "3306",
+    "database": "produtividade",
+    "username": "root",
+    "password": "M7a64tl0"
+  },
+  "scripts_path": "C:\\Users\\gusttavo\\www\\produtividade\\scripts",
+  "log_path": "C:\\Users\\gusttavo\\www\\produtividade\\service.log",
+  "check_interval_minutes": 30,
+  "ftpServer": "172.20.29.199",
+  "ftpUsername": "steel",
+  "ftpPassword": "M7a64tl0"
+}
