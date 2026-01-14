@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+	"context"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -76,12 +78,23 @@ type OBSClient struct {
 	password   string
 	host       string
 	obsProcess *exec.Cmd
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 func NewOBSClient(host, password string) *OBSClient {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &OBSClient{
 		host:     host,
 		password: password,
+		ctx:      ctx,
+		cancel:   cancel,
+	}
+}
+
+func (c *OBSClient) CancelRecording() {
+	if c.cancel != nil {
+		c.cancel()
 	}
 }
 
@@ -337,17 +350,37 @@ func (c *OBSClient) RecordForDuration(duration time.Duration) error {
 		return err
 	}
 
-	fmt.Printf("⏱ Gravando por %v...\n", duration)
-	time.Sleep(duration)
+	if duration == 0 {
+		fmt.Println("♾️ Gravação contínua iniciada. Aguardando sinal de parada...")
 
-	err = c.StopRecording()
-	if err != nil {
-		return err
+		// ← CORREÇÃO CRÍTICA: Aguarda cancelamento via context
+		<-c.ctx.Done()
+
+		fmt.Println("🛑 Sinal de parada recebido, finalizando gravação...")
+		err = c.StopRecording()
+		if err != nil {
+			return err
+		}
+	} else {
+		fmt.Printf("⏱ Gravando por %v...\n", duration)
+
+		// ← CORREÇÃO: Interruptível via context
+		select {
+		case <-time.After(duration):
+			// Tempo normal esgotado
+		case <-c.ctx.Done():
+			// Cancelamento antecipado
+			fmt.Println("⚠ Gravação cancelada antes do término")
+		}
+
+		err = c.StopRecording()
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Println("💾 Aguardando finalizar salvamento...")
-	time.Sleep(obsShutdownWait)
-
+	time.Sleep(3 * time.Second)
 	return nil
 }
 
@@ -361,6 +394,8 @@ type OBSRecordScript struct {
 	obsHost   string
 	obsPass   string
 	obsPath   string
+	activeClients map[string]*OBSClient
+	clientsMutex sync.Mutex
 }
 
 func NewOBSRecordScript(ftpServer, ftpUser, ftpPass, obsHost, obsPass, obsPath string) *OBSRecordScript {
@@ -390,11 +425,24 @@ func NewOBSRecordScript(ftpServer, ftpUser, ftpPass, obsHost, obsPass, obsPath s
 		obsHost:   obsHost,
 		obsPass:   obsPass,
 		obsPath:   obsPath,
+		activeClients: make(map[string]*OBSClient),
 	}
 }
 
 func (s *OBSRecordScript) Name() string {
 	return "obs_record"
+}
+
+func (s *OBSRecordScript) StopActiveRecording(clientID string) error {
+	s.clientsMutex.Lock()
+	defer s.clientsMutex.Unlock()
+
+	if client, exists := s.activeClients[clientID]; exists {
+		client.CancelRecording()
+		delete(s.activeClients, clientID)
+		return nil
+	}
+	return errors.New("cliente não encontrado")
 }
 
 func (s *OBSRecordScript) Execute(args ...string) ([]map[string]interface{}, error) {
@@ -407,8 +455,8 @@ func (s *OBSRecordScript) Execute(args ...string) ([]map[string]interface{}, err
 		return nil, fmt.Errorf("erro ao converter duração: %w", err)
 	}
 
-	if seconds <= 0 {
-		return nil, errors.New("duração deve ser > 0")
+	if seconds < 0 {
+		return nil, errors.New("duração deve ser >= 0 (0 = contínuo)")
 	}
 
 	// Executar gravação OBS
@@ -424,7 +472,6 @@ func (s *OBSRecordScript) Execute(args ...string) ([]map[string]interface{}, err
 		}, err
 	}
 
-	// Converter para map[string]interface{}
 	result := map[string]interface{}{
 		"username":                data.Username,
 		"hostname":                data.Hostname,
@@ -462,9 +509,21 @@ func (s *OBSRecordScript) recordWithOBS(seconds int) (*ScreenRecordData, error) 
 
 	// Criar cliente OBS
 	client := NewOBSClient(s.obsHost, s.obsPass)
+
+	clientID := fmt.Sprintf("%s_%d", username, time.Now().Unix())
+	if seconds == 0 {
+		s.clientsMutex.Lock()
+		s.activeClients[clientID] = client
+		s.clientsMutex.Unlock()
+	}
+
 	defer func() {
 		client.Close()
 		client.CloseOBS()
+
+		s.clientsMutex.Lock()
+		delete(s.activeClients, clientID)
+		s.clientsMutex.Unlock()
 	}()
 
 	// Iniciar OBS

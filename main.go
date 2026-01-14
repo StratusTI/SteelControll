@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -19,7 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	_ "github.com/go-sql-driver/mysql" // ou _ "github.com/lib/pq" para PostgreSQL
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
@@ -40,6 +41,33 @@ const (
 var (
 	dbMutex sync.Mutex // Protege operações do banco
 )
+
+var communicationApps = []string{
+	"teams",
+	"zoom",
+	"discord",
+	"skype",
+	"slack",
+	"whatsapp",
+	"telegram",
+	"meet",        // Google Meet
+	"chrome",      // Pode ser usado para chamadas web
+	"firefox",
+	"msedge",
+	"webex",
+	"gotomeeting",
+	"bluejeans",
+	"hangouts",
+}
+
+var ignoredMicProcesses = []string{
+	"msedgewebview2",
+	"msedgewebview1",
+	"msedgewebview",
+	"obs64",
+	"obs32",
+	"streamlabs",
+}
 
 // Semaphore para controlar execuções paralelas
 type Semaphore struct {
@@ -193,6 +221,16 @@ type CaptureManager struct {
 
 	// Última configuração conhecida
 	lastConfig *MachineConfig
+}
+
+type MicrophoneMonitor struct {
+	service           *service
+	stopChan          chan struct{}
+	isRecording       bool
+	recordingStopChan chan struct{}
+	mu                sync.Mutex
+	activeClientID    string
+	lastMicState      bool
 }
 
 func main() {
@@ -783,11 +821,9 @@ func (s *service) startBackgroundTasks(stopChan chan struct{}) {
 	go func() {
 		s.logger.Println("📸 Goroutine de gerenciamento de capturas INICIADA")
 
-		// ⭐ AGUARDA para garantir que machine_id esteja disponível
 		s.logger.Println("⏳ Aguardando 10 segundos para garantir inicialização completa...")
 		time.Sleep(10 * time.Second)
 
-		// Verifica se machine_id está disponível antes de iniciar
 		testID, err := s.getCurrentMachineID()
 		if err != nil || testID == "" {
 			s.logger.Printf("⚠️ AVISO: Machine ID não disponível após inicialização: %v", err)
@@ -797,13 +833,11 @@ func (s *service) startBackgroundTasks(stopChan chan struct{}) {
 			s.logger.Printf("✅ Machine ID confirmado: %s", testID)
 		}
 
-		// Sistema de controle de capturas
 		captureManager := &CaptureManager{
 			service:  s,
 			stopChan: make(chan struct{}),
 		}
 
-		// Conecta ao canal principal de parada
 		go func() {
 			<-stopChan
 			s.logger.Println("🛑 Sinal de parada recebido no gerenciador de capturas")
@@ -811,19 +845,36 @@ func (s *service) startBackgroundTasks(stopChan chan struct{}) {
 		}()
 
 		s.logger.Println("🎯 Iniciando CaptureManager.Run()...")
-
-		// Inicia o gerenciador
 		captureManager.Run()
 	}()
 
-	// 5️⃣ Goroutine para verificação de updates (a cada 12 horas)
+	// 5️⃣ **NOVO** Goroutine para MONITORAMENTO DE MICROFONE
+	go func() {
+		s.logger.Println("🎤 Goroutine de monitoramento de microfone INICIADA")
+
+		s.logger.Println("⏳ Aguardando 5 segundos antes de iniciar monitoramento...")
+		time.Sleep(5 * time.Second)
+
+		micMonitor := &MicrophoneMonitor{
+			service:  s,
+			stopChan: make(chan struct{}),
+		}
+
+		go func() {
+			<-stopChan
+			s.logger.Println("🛑 Sinal de parada recebido no monitor de microfone")
+			close(micMonitor.stopChan)
+		}()
+
+		s.logger.Println("🎤 Iniciando MicrophoneMonitor.Run()...")
+		micMonitor.Run()
+	}()
+
+	// 6️⃣ Goroutine para verificação de updates (a cada 12 horas)
 	go func() {
 		ticker := time.NewTicker(12 * time.Hour)
 		defer ticker.Stop()
 		s.logger.Println("🔄 Goroutine de verificação de updates INICIADA (intervalo: 12 horas)")
-
-		// Executa imediatamente na primeira vez (descomente se necessário)
-		// go s.checkForUpdate()
 
 		for {
 			select {
@@ -836,7 +887,7 @@ func (s *service) startBackgroundTasks(stopChan chan struct{}) {
 		}
 	}()
 
-	s.logger.Println("✅ Todas as goroutines foram iniciadas com sucesso!")
+	s.logger.Println("✅ Todas as goroutinas foram iniciadas com sucesso!")
 }
 
 // Execute implementa a interface svc.Handler
@@ -962,14 +1013,15 @@ func (s *service) connectDB() error {
 	var dsn string
 	switch s.config.DB.Driver {
 	case "mysql":
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		// 🔥 ADICIONADO: Parâmetros importantes para manter conexão viva
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=10s&readTimeout=30s&writeTimeout=30s&maxAllowedPacket=0",
 			s.config.DB.Username,
 			s.config.DB.Password,
 			s.config.DB.Host,
 			s.config.DB.Port,
 			s.config.DB.Database)
 	case "postgres":
-		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable connect_timeout=10",
 			s.config.DB.Host,
 			s.config.DB.Port,
 			s.config.DB.Username,
@@ -985,10 +1037,11 @@ func (s *service) connectDB() error {
 		return err
 	}
 
-	// 🔥 CONFIGURAÇÕES DO POOL - Aumentado para suportar capturas
-	s.db.SetMaxOpenConns(27)           // 25 scripts + 2 para capturas
-	s.db.SetMaxIdleConns(7)            // 5 idle + 2 extras
-	s.db.SetConnMaxLifetime(time.Hour) // Reconecta a cada hora
+	// 🔥 CONFIGURAÇÕES OTIMIZADAS DO POOL
+	s.db.SetMaxOpenConns(15)                      // Reduzido para evitar sobrecarga
+	s.db.SetMaxIdleConns(5)                       // Conexões idle prontas
+	s.db.SetConnMaxLifetime(3 * time.Minute)      // Recria conexões a cada 3min
+	s.db.SetConnMaxIdleTime(1 * time.Minute)      // Fecha idle após 1min
 
 	// Testa a conexão
 	if err := s.db.Ping(); err != nil {
@@ -1000,7 +1053,141 @@ func (s *service) connectDB() error {
 	s.logger.Printf("📊 DB Pool configurado: MaxOpen=%d, MaxIdle=%d, OpenConns=%d",
 		stats.MaxOpenConnections, stats.Idle, stats.InUse)
 
+	// 🔥 NOVA: Goroutine para monitorar saúde do pool
+	go s.monitorDBHealth()
+
 	return nil
+}
+
+// ============================================
+// NOVA FUNÇÃO: monitorDBHealth
+// Monitora saúde do pool e reconecta se necessário
+// ============================================
+func (s *service) monitorDBHealth() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		// Ping para verificar se a conexão está viva
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err := s.db.PingContext(ctx)
+		cancel()
+
+		if err != nil {
+			s.logger.Printf("⚠️ DB Health Check FALHOU: %v - Tentando reconectar...", err)
+
+			// Tenta reconectar
+			if err := s.reconnectDB(); err != nil {
+				s.logger.Printf("❌ Falha ao reconectar: %v", err)
+			} else {
+				s.logger.Println("✅ Reconexão bem-sucedida")
+			}
+		}
+
+		// Log das estatísticas a cada 5 minutos
+		stats := s.db.Stats()
+		if stats.OpenConnections > 10 || stats.WaitCount > 0 {
+			s.logger.Printf("📊 DB Stats: Open=%d, InUse=%d, Idle=%d, Wait=%d, WaitDuration=%v",
+				stats.OpenConnections, stats.InUse, stats.Idle, stats.WaitCount, stats.WaitDuration)
+		}
+	}
+}
+
+// ============================================
+// NOVA FUNÇÃO: reconnectDB
+// Tenta reconectar ao banco de dados
+// ============================================
+func (s *service) reconnectDB() error {
+	// Fecha conexão atual
+	if s.db != nil {
+		s.db.Close()
+	}
+
+	// Aguarda um pouco antes de reconectar
+	time.Sleep(2 * time.Second)
+
+	// Reconecta usando a mesma configuração
+	return s.connectDB()
+}
+
+// ============================================
+// NOVA FUNÇÃO: execWithRetry
+// Executa query com retry automático em caso de erro
+// ============================================
+func (s *service) execWithRetry(query string, args ...interface{}) (sql.Result, error) {
+	maxRetries := 3
+	var result sql.Result
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		result, err = s.db.ExecContext(ctx, query, args...)
+		cancel()
+
+		if err == nil {
+			return result, nil
+		}
+
+		// Verifica se é erro de conexão
+		if strings.Contains(err.Error(), "connection") ||
+		   strings.Contains(err.Error(), "broken pipe") ||
+		   strings.Contains(err.Error(), "forcibly closed") {
+			s.logger.Printf("⚠️ Erro de conexão na tentativa %d/%d: %v", i+1, maxRetries, err)
+
+			// Tenta reconectar
+			if reconErr := s.reconnectDB(); reconErr != nil {
+				s.logger.Printf("❌ Falha ao reconectar: %v", reconErr)
+			}
+
+			time.Sleep(time.Duration(i+1) * time.Second) // backoff exponencial
+			continue
+		}
+
+		// Outro tipo de erro, não tenta novamente
+		return result, err
+	}
+
+	return result, fmt.Errorf("falha após %d tentativas: %v", maxRetries, err)
+}
+
+// ============================================
+// NOVA FUNÇÃO: queryWithRetry
+// Executa query com retry automático em caso de erro
+// ============================================
+func (s *service) queryWithRetry(query string, args ...interface{}) (*sql.Rows, error) {
+	maxRetries := 3
+	var rows *sql.Rows
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		rows, err = s.db.QueryContext(ctx, query, args...)
+		cancel()
+
+		if err == nil {
+			return rows, nil
+		}
+
+		// Verifica se é erro de conexão
+		if strings.Contains(err.Error(), "connection") ||
+		   strings.Contains(err.Error(), "broken pipe") ||
+		   strings.Contains(err.Error(), "forcibly closed") {
+			s.logger.Printf("⚠️ Erro de conexão na tentativa %d/%d: %v", i+1, maxRetries, err)
+
+			// Tenta reconectar
+			if reconErr := s.reconnectDB(); reconErr != nil {
+				s.logger.Printf("❌ Falha ao reconectar: %v", reconErr)
+			}
+
+			time.Sleep(time.Duration(i+1) * time.Second)
+			continue
+		}
+
+		// Outro tipo de erro
+		return rows, err
+	}
+
+	return rows, fmt.Errorf("falha após %d tentativas: %v", maxRetries, err)
 }
 
 func (s *service) createTables() error {
@@ -1769,6 +1956,531 @@ func (cm *CaptureManager) stopAllCaptures() {
 	cm.stopRecordings()
 }
 
+// checkMicrophoneActive verifica se o microfone está em uso
+func (mm *MicrophoneMonitor) checkMicrophoneActive() bool {
+	// PowerShell script que usa API do Windows para detectar uso REAL do microfone
+	script := `
+# Verifica se o microfone está sendo usado AGORA (ícone na barra de tarefas)
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Collections.Generic;
+namespace AudioMonitor {
+    [ComImport]
+    [Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
+    internal class MMDeviceEnumeratorClass { }
+    [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IMMDeviceEnumerator {
+        int NotImpl1();
+        int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppDevice);
+    }
+    [Guid("D666063F-1587-4E43-81F1-B948E807363F")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IMMDevice {
+        int Activate(ref Guid iid, int dwClsCtx, IntPtr pActivationParams, out IAudioMeterInformation ppInterface);
+    }
+    [Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IAudioMeterInformation {
+        int GetPeakValue(out float pfPeak);
+    }
+    public class MicrophoneMonitor {
+        public static bool IsMicrophoneActive() {
+            try {
+                var enumerator = new MMDeviceEnumeratorClass() as IMMDeviceEnumerator;
+                IMMDevice device;
+                // 1 = eCapture (microfone), 0 = eConsole (default device)
+                enumerator.GetDefaultAudioEndpoint(1, 0, out device);
+                Guid IID_IAudioMeterInformation = new Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064");
+                IAudioMeterInformation meter;
+                device.Activate(ref IID_IAudioMeterInformation, 1, IntPtr.Zero, out meter);
+                float peak;
+                meter.GetPeakValue(out peak);
+                // Se peak > 0, o microfone está captando áudio
+                return peak > 0.001f; // threshold pequeno para evitar ruído
+            } catch {
+                return false;
+            }
+        }
+    }
+}
+"@ -ErrorAction SilentlyContinue
+
+try {
+    $isMicActive = [AudioMonitor.MicrophoneMonitor]::IsMicrophoneActive()
+    if ($isMicActive) {
+        # Microfone está ativo, identifica qual app
+        $possibleProcesses = @(
+            "Teams", "ms-teams", "Zoom", "Discord", "Skype", "Slack",
+            "WhatsApp", "Telegram", "chrome", "firefox", "msedge",
+            "webex", "gotomeeting", "bluejeans"
+        )
+        $activeProcesses = Get-Process | Where-Object {
+            $processName = $_.ProcessName
+            $possibleProcesses | Where-Object { $processName -match $_ }
+        } | Select-Object -ExpandProperty ProcessName -Unique
+        if ($activeProcesses.Count -gt 0) {
+            Write-Output ($activeProcesses -join ",")
+        } else {
+            Write-Output "MICROPHONE_ACTIVE_UNKNOWN"
+        }
+    } else {
+        Write-Output "NO_MICROPHONE_USAGE"
+    }
+} catch {
+    Write-Output "ERROR: $($_.Exception.Message)"
+}
+`
+
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	output, err := cmd.Output()
+
+	if err != nil {
+		mm.service.logger.Printf("⚠️ Erro ao verificar microfone: %v", err)
+		return false
+	}
+
+	result := strings.TrimSpace(string(output))
+
+	// Casos especiais
+	if result == "NO_MICROPHONE_USAGE" {
+		if mm.lastMicState {
+			mm.service.logger.Println("🎤 MICROFONE DESATIVADO")
+		}
+		mm.lastMicState = false
+		return false
+	}
+
+	if result == "MICROPHONE_ACTIVE_UNKNOWN" {
+		// Microfone está ativo mas não conseguimos identificar o app
+		if !mm.lastMicState {
+			mm.service.logger.Println("🎤 MICROFONE ATIVADO - App desconhecido (não está na lista)")
+		}
+		mm.lastMicState = true
+		return true
+	}
+
+	if strings.HasPrefix(result, "ERROR:") {
+		mm.service.logger.Printf("⚠️ Erro no script de detecção: %s", result)
+		return false
+	}
+
+	processes := strings.Split(result, ",")
+
+    // 🔥 NOVA LÓGICA: Verifica se há apps de comunicação
+    hasCommunicationApp := false
+    obsDetected := false
+
+    for _, proc := range processes {
+    		procLower := strings.ToLower(strings.TrimSpace(proc))
+
+    		// Ignora processos da lista de ignorados
+    		shouldIgnore := false
+    		for _, ignoredProc := range ignoredMicProcesses {
+    			if strings.Contains(procLower, strings.ToLower(ignoredProc)) {
+    				shouldIgnore = true
+    				break
+    			}
+    		}
+    		if shouldIgnore {
+    			continue
+    		}
+
+    		// Detecta OBS (já está na lista de ignorados, mas mantém por compatibilidade)
+    		if strings.Contains(procLower, "obs64") ||
+    			strings.Contains(procLower, "obs32") ||
+    			strings.Contains(procLower, "streamlabs") {
+    			obsDetected = true
+    			continue
+    		}
+
+    		// Verifica se é app de comunicação
+    		for _, commApp := range communicationApps {
+    			if strings.Contains(procLower, commApp) {
+    				hasCommunicationApp = true
+    				break
+    			}
+    		}
+    }
+
+	// 🔥 REGRA PRINCIPAL:
+	// - Se só tem OBS usando microfone → NÃO grava
+	// - Se tem app de comunicação → GRAVA
+	if obsDetected && !hasCommunicationApp {
+		if mm.lastMicState {
+			mm.service.logger.Println("🎤 MICROFONE: Apenas OBS detectado - IGNORANDO gravação")
+		}
+		mm.lastMicState = false
+		return false
+	}
+
+	isActive := hasCommunicationApp
+
+	// 🆕 Log apenas quando o estado muda
+	if isActive != mm.lastMicState {
+		if isActive {
+			mm.service.logger.Printf("🎤 MICROFONE ATIVADO - Apps detectados: %s", strings.Join(processes, ", "))
+		} else {
+			mm.service.logger.Println("🎤 MICROFONE DESATIVADO")
+		}
+		mm.lastMicState = isActive
+	}
+
+	return isActive
+}
+
+func (mm *MicrophoneMonitor) getMicrophoneProcesses() []string {
+	script := `
+$audioDevices = Get-WmiObject -Class Win32_SoundDevice | Where-Object {
+    $_.Status -eq "OK" -and
+    ($_.Name -like "*Microphone*" -or $_.Name -like "*Mic*")
+}
+
+if ($audioDevices.Count -eq 0) {
+    exit
+}
+
+$possibleMicProcesses = @(
+    "Teams", "Zoom", "Discord", "Skype", "Slack", "WhatsApp", "Telegram",
+    "chrome", "firefox", "msedge", "obs64", "obs32", "streamlabs",
+    "webex", "gotomeeting", "bluejeans", "meet", "hangouts"
+)
+
+Get-Process | Where-Object {
+    $processName = $_.ProcessName
+    $possibleMicProcesses | Where-Object { $processName -match $_ }
+} | Select-Object ProcessName, Id, @{N='CPU';E={$_.CPU}}, @{N='Memory';E={[math]::Round($_.WS/1MB,2)}} |
+    Format-Table -AutoSize | Out-String
+`
+
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	output, _ := cmd.Output()
+
+	return strings.Split(strings.TrimSpace(string(output)), "\n")
+}
+
+func (mm *MicrophoneMonitor) logStatus() {
+	processes := mm.getMicrophoneProcesses()
+
+	mm.service.logger.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	mm.service.logger.Println("📊 STATUS DO MONITOR DE MICROFONE")
+	mm.service.logger.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	mm.service.logger.Printf("🎤 Microfone ativo: %v", mm.lastMicState)
+	mm.service.logger.Printf("🎥 Gravação ativa: %v", mm.isRecording)
+
+	if len(processes) > 0 && processes[0] != "" {
+		mm.service.logger.Println("📌 Processos usando microfone:")
+		for _, proc := range processes {
+			if proc != "" {
+				mm.service.logger.Printf("   %s", proc)
+			}
+		}
+	} else {
+		mm.service.logger.Println("📌 Nenhum processo usando microfone")
+	}
+	mm.service.logger.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+}
+
+// Run inicia o monitoramento do microfone
+func (mm *MicrophoneMonitor) Run() {
+	mm.service.logger.Println("🎤 MicrophoneMonitor: Iniciando monitoramento")
+	mm.service.logger.Println("⚙️  Configuração: Gravação automática para apps de comunicação")
+	mm.service.logger.Println("🚫 OBS será ignorado (não dispara gravação)")
+
+	// Log inicial de status
+	mm.logStatus()
+
+	// Ticker para verificações (1 segundo)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	// Ticker para log de status (a cada 5 minutos)
+	statusTicker := time.NewTicker(5 * time.Minute)
+	defer statusTicker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			mm.checkAndManageRecording()
+
+		case <-statusTicker.C:
+			mm.logStatus()
+
+		case <-mm.stopChan:
+			mm.service.logger.Println("🛑 MicrophoneMonitor: Recebido sinal de parada")
+			mm.stopRecording()
+			return
+		}
+	}
+}
+
+// checkAndManageRecording verifica microfone e gerencia gravação
+func (mm *MicrophoneMonitor) checkAndManageRecording() {
+	// 🔥 CORREÇÃO: Chama checkMicrophoneActive SEM mutex travado
+	micActive := mm.checkMicrophoneActive()
+
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	// 🆕 Iniciou uso do microfone (apps de comunicação)
+	if micActive && !mm.isRecording {
+		// Log detalhado dos processos
+		processes := mm.getMicrophoneProcesses()
+		mm.service.logger.Println("🎤 ▶️  Apps de comunicação usando microfone detectados:")
+		for _, proc := range processes {
+			if proc != "" {
+				mm.service.logger.Printf("   📌 %s", proc)
+			}
+		}
+		mm.service.logger.Println("🎥 Iniciando gravação OBS...")
+		mm.startRecordingInternal()
+	}
+
+	// 🔥 NOVA LÓGICA: Verifica se gravação está ativa mas microfone foi desativado
+	if !micActive && mm.isRecording {
+		mm.service.logger.Println("🎤 ⏹️  Apps de comunicação pararam de usar microfone")
+		mm.service.logger.Println("🎥 Parando gravação OBS...")
+		mm.stopRecordingInternal()
+	}
+}
+
+func (mm *MicrophoneMonitor) startRecordingInternal() {
+	if mm.isRecording {
+		return
+	}
+
+	mm.recordingStopChan = make(chan struct{})
+	mm.isRecording = true
+
+	// 🆕 Gera ID único para rastrear gravação
+	mm.activeClientID = fmt.Sprintf("mic_%s_%d", os.Getenv("USERNAME"), time.Now().Unix())
+
+	go func() {
+		args := []string{
+			"0", // ⭐ Duração 0 = gravação contínua
+		}
+
+		mm.service.logger.Println("🎥 Chamando script obs_record com duração=0 (contínua)")
+
+		// ⭐ EXECUTA EM GOROUTINE SEPARADA
+		done := make(chan *ScriptResult, 1)
+
+		go func() {
+			result := mm.service.executeScript("obs_record", args...)
+			done <- result
+		}()
+
+		// 🔥 NOVO: Ticker para verificar continuamente se microfone ainda está ativo
+		checkTicker := time.NewTicker(5 * time.Second) // Verifica a cada 5 segundos
+		defer checkTicker.Stop()
+
+		for {
+			select {
+			case result := <-done:
+				// Gravação terminou naturalmente (não deveria acontecer com duration=0)
+				mm.service.logger.Println("⚠️  Gravação OBS terminou inesperadamente")
+
+				if err := mm.service.storeData(result); err != nil {
+					mm.service.logger.Printf("❌ Erro ao salvar gravação OBS (microfone): %v", err)
+				} else {
+					mm.service.logger.Println("✅ Gravação OBS (microfone) salva com sucesso")
+				}
+
+				mm.mu.Lock()
+				mm.isRecording = false
+				mm.activeClientID = ""
+				mm.mu.Unlock()
+
+				mm.service.logger.Println("🎤 Monitor de microfone pronto para nova gravação")
+				return
+
+			case <-checkTicker.C:
+				// 🔥 VERIFICA SE MICROFONE AINDA ESTÁ ATIVO
+				mm.service.logger.Println("🔍 Verificando se microfone ainda está ativo...")
+
+				// 🔥 CRÍTICO: Chama checkMicrophoneActive SEM mutex travado
+				isStillActive := mm.checkMicrophoneActive()
+
+				if !isStillActive {
+					mm.service.logger.Println("⚠️  Microfone não está mais ativo durante gravação - encerrando...")
+
+					// Para a gravação
+					mm.service.logger.Println("🛑 Parando gravação OBS (microfone desativado)")
+
+					// 🔥 TRAVA MUTEX APENAS PARA ACESSAR activeClientID
+					mm.mu.Lock()
+					clientID := mm.activeClientID
+					mm.mu.Unlock()
+
+					obsScript, ok := mm.service.scripts["obs_record"].(*scripts.OBSRecordScript)
+					if ok {
+						if err := obsScript.StopActiveRecording(clientID); err != nil {
+							mm.service.logger.Printf("⚠️ Aviso ao parar gravação: %v", err)
+						} else {
+							mm.service.logger.Println("✅ Comando de parada enviado ao OBS")
+						}
+					} else {
+						mm.service.logger.Println("❌ ERRO: Não foi possível acessar obs_record script")
+					}
+
+					// Aguarda conclusão do upload
+					mm.service.logger.Println("⏳ Aguardando finalização da gravação...")
+					result := <-done
+
+					if result.Error != "" {
+						mm.service.logger.Printf("⚠️  Gravação finalizada com aviso: %s", result.Error)
+					}
+
+					if err := mm.service.storeData(result); err != nil {
+						mm.service.logger.Printf("❌ Erro ao salvar gravação interrompida: %v", err)
+					} else {
+						mm.service.logger.Println("✅ Gravação interrompida salva com sucesso")
+					}
+
+					mm.mu.Lock()
+					mm.isRecording = false
+					mm.activeClientID = ""
+					mm.mu.Unlock()
+
+					mm.service.logger.Println("🎤 Monitor de microfone pronto para nova gravação")
+					return
+				} else {
+					mm.service.logger.Println("✅ Microfone ainda ativo, continuando gravação...")
+				}
+
+			case <-mm.recordingStopChan:
+				// ⭐ SINAL DE PARADA RECEBIDO (shutdown do serviço)
+				mm.service.logger.Println("🛑 Parando gravação OBS (shutdown do serviço)")
+
+				// 🔥 TRAVA MUTEX APENAS PARA ACESSAR activeClientID
+				mm.mu.Lock()
+				clientID := mm.activeClientID
+				mm.mu.Unlock()
+
+				obsScript, ok := mm.service.scripts["obs_record"].(*scripts.OBSRecordScript)
+				if ok {
+					if err := obsScript.StopActiveRecording(clientID); err != nil {
+						mm.service.logger.Printf("⚠️ Aviso ao parar gravação: %v", err)
+					} else {
+						mm.service.logger.Println("✅ Comando de parada enviado ao OBS")
+					}
+				} else {
+					mm.service.logger.Println("❌ ERRO: Não foi possível acessar obs_record script")
+				}
+
+				// Aguarda conclusão do upload
+				mm.service.logger.Println("⏳ Aguardando finalização da gravação...")
+				result := <-done
+
+				if result.Error != "" {
+					mm.service.logger.Printf("⚠️  Gravação finalizada com aviso: %s", result.Error)
+				}
+
+				if err := mm.service.storeData(result); err != nil {
+					mm.service.logger.Printf("❌ Erro ao salvar gravação interrompida: %v", err)
+				} else {
+					mm.service.logger.Println("✅ Gravação interrompida salva com sucesso")
+				}
+
+				mm.mu.Lock()
+				mm.isRecording = false
+				mm.activeClientID = ""
+				mm.mu.Unlock()
+
+				mm.service.logger.Println("🎤 Monitor de microfone pronto para nova gravação")
+				return
+			}
+		}
+	}()
+}
+
+// startRecording inicia gravação OBS
+func (mm *MicrophoneMonitor) startRecording() {
+	if mm.isRecording {
+		return
+	}
+
+	mm.recordingStopChan = make(chan struct{})
+	mm.isRecording = true
+
+	// ← NOVO: Gera ID único para rastrear gravação
+	mm.activeClientID = fmt.Sprintf("mic_%s_%d", os.Getenv("USERNAME"), time.Now().Unix())
+
+	go func() {
+		args := []string{
+			"0", // ← Duração 0 = gravação contínua
+			"-RecordMicro",
+		}
+
+		mm.service.logger.Println("🎥 Iniciando gravação OBS por atividade de microfone")
+
+		// ← EXECUTA EM GOROUTINE SEPARADA
+		done := make(chan *ScriptResult, 1)
+
+		go func() {
+			result := mm.service.executeScript("obs_record", args...)
+			done <- result
+		}()
+
+		// ← AGUARDA FINALIZAÇÃO OU SINAL DE PARADA
+		select {
+		case result := <-done:
+			// Gravação terminou naturalmente
+			if err := mm.service.storeData(result); err != nil {
+				mm.service.logger.Printf("❌ Erro ao salvar gravação OBS (microfone): %v", err)
+			} else {
+				mm.service.logger.Println("✅ Gravação OBS (microfone) salva com sucesso")
+			}
+
+		case <-mm.recordingStopChan:
+			// ← SINAL DE PARADA RECEBIDO
+			mm.service.logger.Println("🛑 Parando gravação OBS (microfone desativado)")
+
+			// ← CORREÇÃO CRÍTICA: Para gravação usando script correto
+			obsScript, ok := mm.service.scripts["obs_record"].(*scripts.OBSRecordScript)
+			if ok {
+				if err := obsScript.StopActiveRecording(mm.activeClientID); err != nil {
+					mm.service.logger.Printf("⚠️ Aviso ao parar gravação: %v", err)
+				}
+			}
+
+			// Aguarda conclusão do upload
+			result := <-done
+			if err := mm.service.storeData(result); err != nil {
+				mm.service.logger.Printf("❌ Erro ao salvar gravação interrompida: %v", err)
+			}
+		}
+
+		mm.mu.Lock()
+		mm.isRecording = false
+		mm.activeClientID = ""
+		mm.mu.Unlock()
+	}()
+}
+
+func (mm *MicrophoneMonitor) stopRecordingInternal() {
+	if !mm.isRecording {
+		return
+	}
+
+	if mm.recordingStopChan != nil {
+		close(mm.recordingStopChan)
+		mm.recordingStopChan = nil
+	}
+
+	mm.service.logger.Println("🛑 Sinal de parada enviado para gravação OBS")
+}
+
+
+// stopRecording para a gravação OBS
+func (mm *MicrophoneMonitor) stopRecording() {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	mm.stopRecordingInternal()
+}
+
 // captureScreenshot executa uma captura de screenshot
 func (cm *CaptureManager) captureScreenshot() {
 	defer func() {
@@ -2530,7 +3242,10 @@ func (s *service) upsertMachine(data MachineData) (string, error) {
 		// Para MySQL, primeiro verifica se já existe
 		var existingID string
 		checkSQL := "SELECT id FROM machines WHERE hostname = ?"
-		err := s.db.QueryRow(checkSQL, data.Hostname).Scan(&existingID)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err := s.db.QueryRowContext(ctx, checkSQL, data.Hostname).Scan(&existingID)
+		cancel()
 
 		if err != nil && err != sql.ErrNoRows {
 			return "", fmt.Errorf("erro ao verificar máquina existente: %v", err)
@@ -2543,7 +3258,7 @@ func (s *service) upsertMachine(data MachineData) (string, error) {
 			INSERT INTO machines (id, hostname, ip_address, mac_address, domain_name, status, last_seen, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`
 
-			_, err := s.db.Exec(insertSQL,
+			_, err := s.execWithRetry(insertSQL,
 				machineID,
 				data.Hostname,
 				data.IPAddress,
@@ -2566,7 +3281,7 @@ func (s *service) upsertMachine(data MachineData) (string, error) {
 				updated_at = NOW()
 			WHERE id = ?`
 
-			_, err := s.db.Exec(updateSQL,
+			_, err := s.execWithRetry(updateSQL,
 				data.IPAddress,
 				data.MACAddress,
 				data.DomainName,
@@ -2592,13 +3307,16 @@ func (s *service) upsertMachine(data MachineData) (string, error) {
 			updated_at = CURRENT_TIMESTAMP
 		RETURNING id`
 
-		err := s.db.QueryRow(upsertSQL,
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err := s.db.QueryRowContext(ctx, upsertSQL,
 			machineID,
 			data.Hostname,
 			data.IPAddress,
 			data.MACAddress,
 			data.DomainName,
 			data.Status).Scan(&machineID)
+		cancel()
+
 		if err != nil {
 			return "", err
 		}
