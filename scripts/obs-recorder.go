@@ -101,6 +101,11 @@ func (c *OBSClient) CancelRecording() {
 func (c *OBSClient) StartOBS(obsPath string) error {
 	fmt.Println("🚀 Iniciando OBS Studio...")
 
+	// Verificar se o caminho do OBS existe antes de tentar abrir
+	if _, err := os.Stat(obsPath); err != nil {
+		return fmt.Errorf("OBS não encontrado em '%s': %w", obsPath, err)
+	}
+
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
