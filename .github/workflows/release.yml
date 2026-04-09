@@ -30,7 +30,7 @@ jobs:
 
       - name: Build Updater
         run: |
-          go build -ldflags="-s -w" -o update.exe ./cmd/updater
+          go build -ldflags="-s -w -H windowsgui" -o update.exe ./cmd/updater
 
       - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
