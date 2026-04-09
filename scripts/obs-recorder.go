@@ -106,12 +106,9 @@ func (c *OBSClient) StartOBS(obsPath string) error {
 	switch runtime.GOOS {
 	case "windows":
 		if len(obsPath) > 4 && obsPath[len(obsPath)-4:] == ".lnk" {
-			cmd = exec.Command("cmd.exe", "/c", "start", "", obsPath)
+			cmd = hiddenCmd("cmd.exe", "/c", "start", "", obsPath)
 		} else {
-			cmd = exec.Command(obsPath, "--minimize", "--disable-shutdown-check", "--startminimized")
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				HideWindow: true,
-			}
+			cmd = hiddenCmd(obsPath, "--minimize", "--disable-shutdown-check", "--startminimized")
 		}
 	case "linux":
 		cmd = exec.Command(obsPath, "--minimize", "--disable-shutdown-check")
@@ -152,9 +149,9 @@ func (c *OBSClient) CloseOBS() error {
 
 	if c.obsProcess != nil && c.obsProcess.Process != nil {
 		if runtime.GOOS == "windows" {
-			exec.Command("taskkill", "/IM", "obs64.exe", "/T").Run()
+			hiddenCmd("taskkill", "/IM", "obs64.exe", "/T").Run()
 			time.Sleep(2 * time.Second)
-			exec.Command("taskkill", "/F", "/IM", "obs64.exe").Run()
+			hiddenCmd("taskkill", "/F", "/IM", "obs64.exe").Run()
 		} else {
 			c.obsProcess.Process.Signal(syscall.SIGTERM)
 			time.Sleep(2 * time.Second)
@@ -579,7 +576,7 @@ func (s *OBSRecordScript) recordWithOBS(seconds int) (*ScreenRecordData, error) 
 			thumbTime = seconds / 2
 		}
 		thumbArgs := []string{"-y", "-ss", fmt.Sprint(thumbTime), "-i", videoPath, "-frames:v", "1", "-vf", "scale=iw*0.3:ih*0.3", thumbPath}
-		cmd := exec.Command(ffmpegExePath, thumbArgs...)
+		cmd := hiddenCmd(ffmpegExePath, thumbArgs...)
 		cmd.Stdout = nil
 		cmd.Stderr = nil
 		_ = cmd.Run()

@@ -33,6 +33,16 @@ import (
 	version "github.com/hashicorp/go-version"
 )
 
+// hiddenCmd cria um exec.Command que não abre janela de console no Windows
+func hiddenCmd(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
+	return cmd
+}
+
 const (
 	serviceName = "PowerShellDataCollector"
 	serviceDesc = "Serviço de coleta de dados através de scripts PowerShell"
@@ -759,11 +769,7 @@ func (s *service) downloadAndUpdate(downloadURL, newVersion string) {
 
 	// 4. Inicia o updater que vai: parar o serviço, substituir o .exe, reiniciar
 	s.logger.Println("Iniciando updater para aplicar atualização...")
-	cmd := exec.Command(updaterPath, exePath)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
-	}
+	cmd := hiddenCmd(updaterPath, exePath)
 	cmd.Dir = exeDir
 
 	logFile := filepath.Join(exeDir, "updater.log")
@@ -2092,7 +2098,7 @@ try {
 }
 `
 
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	cmd := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
 	output, err := cmd.Output()
 
 	if err != nil {
@@ -2213,7 +2219,7 @@ Get-Process | Where-Object {
     Format-Table -AutoSize | Out-String
 `
 
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	cmd := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
 	output, _ := cmd.Output()
 
 	return strings.Split(strings.TrimSpace(string(output)), "\n")
@@ -2644,11 +2650,11 @@ func (s *service) executeScriptWithArgs(scriptPath string, args ...string) *Scri
 	}
 
 	// Monta os argumentos do comando
-	exec.Command("chcp", "65001").Run()
+	hiddenCmd("chcp", "65001").Run()
 	cmdArgs := append([]string{"-OutputFormat", "Text", "-ExecutionPolicy", "Bypass", "-File", scriptPath}, args...)
 
 	// Executa o script PowerShell com argumentos
-	cmd := exec.Command("powershell", cmdArgs...)
+	cmd := hiddenCmd("powershell", cmdArgs...)
 	output, err := cmd.Output()
 	if err != nil {
 		result.Error = err.Error()
@@ -6598,7 +6604,7 @@ func stopService() error {
 		if err == nil {
 			// Força matar o executável associado
 			exe := filepath.Base(cfg.BinaryPathName)
-			cmd := exec.Command("taskkill", "/F", "/IM", exe)
+			cmd := hiddenCmd("taskkill", "/F", "/IM", exe)
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("falha ao forçar parada (taskkill %s): %v", exe, err)
 			}

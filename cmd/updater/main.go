@@ -334,92 +334,66 @@ func (u *Updater) needsUpdate(newVersion string) (bool, error) {
 
 func (u *Updater) stopTask() (bool, error) {
 	u.logger.Println("Parando processo (serviço / tarefa agendada / manual)...")
-	stopped := false
 
-	// 1. Tenta parar como Windows Service (sc stop)
-	stopped = stopped || u.tryStopService()
+	exeName := filepath.Base(u.currentPath)
 
-	// 2. Tenta parar como Scheduled Task (schtasks /End)
-	stopped = stopped || u.tryStopScheduledTask()
+	// Executa tudo em uma única chamada PowerShell para evitar múltiplas janelas no Windows 10
+	script := fmt.Sprintf(`
+$ErrorActionPreference = 'SilentlyContinue'
+$result = @()
 
-	// 3. Força kill do processo diretamente (cobre execução manual e qualquer caso residual)
-	u.forceKillProcess()
+# 1. Tenta parar como Windows Service
+$svc = Get-Service -Name '%s' -ErrorAction SilentlyContinue
+if ($svc -and $svc.Status -eq 'Running') {
+    Stop-Service -Name '%s' -Force -ErrorAction SilentlyContinue
+    $svc.WaitForStatus('Stopped', '00:00:15')
+    $result += 'service_stopped'
+}
 
-	if stopped {
-		u.logger.Println("✓ Processo parado com sucesso")
-	} else {
-		u.logger.Println("Nenhum serviço/tarefa ativo encontrado, processo encerrado via taskkill")
+# 2. Tenta parar como Scheduled Task
+$task = Get-ScheduledTask -TaskName '%s' -ErrorAction SilentlyContinue
+if ($task -and $task.State -eq 'Running') {
+    Stop-ScheduledTask -TaskName '%s' -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    $result += 'task_stopped'
+}
+
+# 3. Força kill do processo
+$proc = Get-Process -Name '%s' -ErrorAction SilentlyContinue
+if ($proc) {
+    Stop-Process -Name '%s' -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+    $result += 'process_killed'
+}
+
+$result -join ','
+`, windowsServiceName, windowsServiceName,
+		scheduledTaskName, scheduledTaskName,
+		strings.TrimSuffix(exeName, ".exe"), strings.TrimSuffix(exeName, ".exe"))
+
+	cmd := hiddenCmd("powershell", "-WindowStyle", "Hidden", "-NoProfile", "-NonInteractive", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	outputStr := strings.TrimSpace(string(output))
+	u.logger.Printf("Stop output: %s", outputStr)
+
+	if err != nil {
+		u.logger.Printf("Aviso: erro no script de parada: %v", err)
+	}
+
+	if strings.Contains(outputStr, "service_stopped") {
+		u.logger.Println("[Service] ✓ Serviço parado")
+	}
+	if strings.Contains(outputStr, "task_stopped") {
+		u.logger.Println("[Task] ✓ Tarefa agendada parada")
+	}
+	if strings.Contains(outputStr, "process_killed") {
+		u.logger.Println("✓ Processo encerrado")
+	}
+	if outputStr == "" {
+		u.logger.Println("Nenhum serviço/tarefa/processo ativo encontrado")
 	}
 
 	return true, nil
-}
-
-// tryStopService tenta parar via Windows Service Control Manager
-func (u *Updater) tryStopService() bool {
-	u.logger.Println("[Service] Tentando sc stop...")
-	stopCmd := hiddenCmd("sc", "stop", windowsServiceName)
-	output, err := stopCmd.CombinedOutput()
-	outputStr := string(output)
-	u.logger.Printf("[Service] sc stop output: %s", outputStr)
-
-	if err != nil {
-		if strings.Contains(outputStr, "1062") || strings.Contains(outputStr, "1060") {
-			u.logger.Println("[Service] Serviço não encontrado ou já parado")
-			return false
-		}
-	}
-
-	// Aguarda o serviço parar completamente (até 15 segundos)
-	for i := 0; i < 15; i++ {
-		time.Sleep(1 * time.Second)
-		queryCmd := hiddenCmd("sc", "query", windowsServiceName)
-		queryOutput, _ := queryCmd.CombinedOutput()
-		if strings.Contains(string(queryOutput), "STOPPED") {
-			u.logger.Println("[Service] ✓ Serviço parado")
-			return true
-		}
-		u.logger.Printf("[Service] Aguardando parar... (%d/15)", i+1)
-	}
-
-	u.logger.Println("[Service] Não parou no tempo esperado")
-	return false
-}
-
-// tryStopScheduledTask tenta parar via Scheduled Task
-func (u *Updater) tryStopScheduledTask() bool {
-	u.logger.Println("[Task] Tentando schtasks /End...")
-	checkCmd := hiddenCmd("schtasks", "/Query", "/TN", scheduledTaskName, "/FO", "LIST", "/V")
-	output, err := checkCmd.CombinedOutput()
-	if err != nil {
-		u.logger.Printf("[Task] Tarefa agendada não encontrada: %v", err)
-		return false
-	}
-
-	outputStr := string(output)
-	if strings.Contains(outputStr, "Running") || strings.Contains(outputStr, "Em Execu") {
-		stopCmd := hiddenCmd("schtasks", "/End", "/TN", scheduledTaskName)
-		if err := stopCmd.Run(); err != nil {
-			u.logger.Printf("[Task] Aviso: erro ao parar tarefa: %v", err)
-		} else {
-			u.logger.Println("[Task] ✓ Tarefa agendada parada")
-		}
-		time.Sleep(2 * time.Second)
-		return true
-	}
-
-	u.logger.Println("[Task] Tarefa não estava em execução")
-	return false
-}
-
-func (u *Updater) forceKillProcess() {
-	exeName := filepath.Base(u.currentPath)
-	cmd := hiddenCmd("taskkill", "/F", "/IM", exeName)
-	if err := cmd.Run(); err != nil {
-		u.logger.Printf("Processo não estava rodando ou já foi encerrado: %v", err)
-	} else {
-		u.logger.Println("✓ Processo encerrado")
-	}
-	time.Sleep(3 * time.Second)
 }
 
 func (u *Updater) createBackup() (string, error) {
@@ -489,71 +463,58 @@ func (u *Updater) updateVersionFile(newVersion string) error {
 func (u *Updater) startTask() error {
 	u.logger.Println("Reiniciando processo (serviço / tarefa agendada / manual)...")
 
-	// 1. Tenta iniciar como Windows Service
-	if u.tryStartService() {
-		return nil
+	// Executa tudo em uma única chamada PowerShell para evitar múltiplas janelas no Windows 10
+	script := fmt.Sprintf(`
+$ErrorActionPreference = 'SilentlyContinue'
+
+# 1. Tenta iniciar como Windows Service
+$svc = Get-Service -Name '%s' -ErrorAction SilentlyContinue
+if ($svc) {
+    Start-Service -Name '%s' -ErrorAction SilentlyContinue
+    Write-Output 'service_started'
+    exit 0
+}
+
+# 2. Tenta iniciar como Scheduled Task
+$task = Get-ScheduledTask -TaskName '%s' -ErrorAction SilentlyContinue
+if ($task) {
+    Start-ScheduledTask -TaskName '%s' -ErrorAction SilentlyContinue
+    Write-Output 'task_started'
+    exit 0
+}
+
+Write-Output 'none'
+`, windowsServiceName, windowsServiceName,
+		scheduledTaskName, scheduledTaskName)
+
+	cmd := hiddenCmd("powershell", "-WindowStyle", "Hidden", "-NoProfile", "-NonInteractive", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	outputStr := strings.TrimSpace(string(output))
+	u.logger.Printf("Start output: %s", outputStr)
+
+	if err != nil {
+		u.logger.Printf("Aviso: erro no script de início: %v", err)
 	}
 
-	// 2. Tenta iniciar como Scheduled Task
-	if u.tryStartScheduledTask() {
+	if strings.Contains(outputStr, "service_started") {
+		u.logger.Println("[Service] ✓ Serviço iniciado")
+		return nil
+	}
+	if strings.Contains(outputStr, "task_started") {
+		u.logger.Println("[Task] ✓ Tarefa agendada iniciada")
 		return nil
 	}
 
 	// 3. Inicia o executável diretamente como último recurso
 	u.logger.Println("[Manual] Iniciando executável diretamente...")
-	cmd := hiddenCmd(u.currentPath)
-	cmd.Dir = filepath.Dir(u.currentPath)
-	if err := cmd.Start(); err != nil {
+	manualCmd := hiddenCmd(u.currentPath)
+	manualCmd.Dir = filepath.Dir(u.currentPath)
+	if err := manualCmd.Start(); err != nil {
 		return fmt.Errorf("erro ao iniciar processo diretamente: %v", err)
 	}
-	cmd.Process.Release()
+	manualCmd.Process.Release()
 	u.logger.Println("[Manual] ✓ Processo iniciado diretamente")
 	return nil
-}
-
-// tryStartService tenta iniciar via Windows Service
-func (u *Updater) tryStartService() bool {
-	u.logger.Println("[Service] Tentando sc start...")
-	cmd := hiddenCmd("sc", "start", windowsServiceName)
-	output, err := cmd.CombinedOutput()
-	outputStr := string(output)
-	u.logger.Printf("[Service] sc start output: %s", outputStr)
-
-	if err != nil {
-		if strings.Contains(outputStr, "1060") {
-			u.logger.Println("[Service] Serviço não existe")
-			return false
-		}
-		if strings.Contains(outputStr, "1056") {
-			u.logger.Println("[Service] Serviço já está em execução")
-			return true
-		}
-		u.logger.Printf("[Service] Falha ao iniciar: %v", err)
-		return false
-	}
-
-	u.logger.Println("[Service] ✓ Serviço iniciado")
-	return true
-}
-
-// tryStartScheduledTask tenta iniciar via Scheduled Task
-func (u *Updater) tryStartScheduledTask() bool {
-	u.logger.Println("[Task] Tentando schtasks /Run...")
-	// Verifica se a tarefa existe
-	checkCmd := hiddenCmd("schtasks", "/Query", "/TN", scheduledTaskName)
-	if err := checkCmd.Run(); err != nil {
-		u.logger.Println("[Task] Tarefa agendada não existe")
-		return false
-	}
-
-	runCmd := hiddenCmd("schtasks", "/Run", "/TN", scheduledTaskName)
-	if err := runCmd.Run(); err != nil {
-		u.logger.Printf("[Task] Falha ao executar tarefa: %v", err)
-		return false
-	}
-
-	u.logger.Println("[Task] ✓ Tarefa agendada iniciada")
-	return true
 }
 
 func (u *Updater) restoreFromBackup(backupPath string) {

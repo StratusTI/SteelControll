@@ -1,0 +1,28 @@
+[UPDATER] 2026/04/09 18:51:53 main.go:60: === INICIANDO PROCESSO DE ATUALIZAÇÃO ===
+[UPDATER] 2026/04/09 18:51:53 main.go:80: Arquivo de atualização encontrado: C:\Users\gusttavo\www\SteelControll\produtividade_new.exe
+[UPDATER] 2026/04/09 18:51:53 main.go:336: Parando processo (serviço / tarefa agendada / manual)...
+[UPDATER] 2026/04/09 18:51:53 main.go:359: [Service] Tentando sc stop...
+[UPDATER] 2026/04/09 18:51:53 main.go:363: [Service] sc stop output: [SC] OpenService FALHA 1060:
+
+O servi�o especificado n�o existe como servi�o instalado.
+
+[UPDATER] 2026/04/09 18:51:53 main.go:367: [Service] Serviço não encontrado ou já parado
+[UPDATER] 2026/04/09 18:51:53 main.go:390: [Task] Tentando schtasks /End...
+[UPDATER] 2026/04/09 18:51:53 main.go:394: [Task] Tarefa agendada não encontrada: exit status 1
+[UPDATER] 2026/04/09 18:51:53 main.go:420: ✓ Processo encerrado
+[UPDATER] 2026/04/09 18:51:56 main.go:351: Nenhum serviço/tarefa ativo encontrado, processo encerrado via taskkill
+[UPDATER] 2026/04/09 18:51:56 main.go:100: Backup criado em: C:\Users\gusttavo\www\SteelControll\produtividade.exe.backup
+[UPDATER] 2026/04/09 18:51:56 main.go:104: Substituindo executável...
+[UPDATER] 2026/04/09 18:51:56 main.go:115: ✓ Executável substituído
+[UPDATER] 2026/04/09 18:51:56 main.go:490: Reiniciando processo (serviço / tarefa agendada / manual)...
+[UPDATER] 2026/04/09 18:51:56 main.go:516: [Service] Tentando sc start...
+[UPDATER] 2026/04/09 18:51:56 main.go:520: [Service] sc start output: [SC] StartService: OpenService FALHA 1060:
+
+O servi�o especificado n�o existe como servi�o instalado.
+
+[UPDATER] 2026/04/09 18:51:56 main.go:524: [Service] Serviço não existe
+[UPDATER] 2026/04/09 18:51:56 main.go:541: [Task] Tentando schtasks /Run...
+[UPDATER] 2026/04/09 18:51:56 main.go:545: [Task] Tarefa agendada não existe
+[UPDATER] 2026/04/09 18:51:56 main.go:503: [Manual] Iniciando executável diretamente...
+[UPDATER] 2026/04/09 18:51:58 main.go:510: [Manual] ✓ Processo iniciado diretamente
+[UPDATER] 2026/04/09 18:51:58 main.go:67: === ATUALIZAÇÃO CONCLUÍDA COM SUCESSO ===

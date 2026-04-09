@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -182,7 +181,7 @@ func (s *ScreenRecordScript) recordScreen(seconds int, recordCamera bool, record
 
 	// Gravar
 	fmt.Println("🎬 Iniciando gravação...")
-	cmd := exec.Command(ffmpegExePath, ffArgs...)
+	cmd := hiddenCmd(ffmpegExePath, ffArgs...)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	if err := cmd.Run(); err != nil {
@@ -203,7 +202,7 @@ func (s *ScreenRecordScript) recordScreen(seconds int, recordCamera bool, record
 		thumbTime = seconds / 2
 	}
 	thumbArgs := []string{"-y", "-ss", fmt.Sprint(thumbTime), "-i", videoPath, "-frames:v", "1", "-vf", "scale=iw*0.3:ih*0.3", thumbPath}
-	cmd2 := exec.Command(ffmpegExePath, thumbArgs...)
+	cmd2 := hiddenCmd(ffmpegExePath, thumbArgs...)
 	cmd2.Stdout = nil
 	cmd2.Stderr = nil
 	_ = cmd2.Run()
@@ -427,7 +426,7 @@ func (s *ScreenRecordScript) buildFFmpegArgs(seconds int, outputPath string, rec
 
 // detectVideoDevice detecta o dispositivo de câmera disponível
 func (s *ScreenRecordScript) detectVideoDevice() (string, error) {
-	cmd := exec.Command(ffmpegExePath, "-list_devices", "true", "-f", "dshow", "-i", "dummy")
+	cmd := hiddenCmd(ffmpegExePath, "-list_devices", "true", "-f", "dshow", "-i", "dummy")
 	output, _ := cmd.CombinedOutput()
 
 	lines := strings.Split(string(output), "\n")
@@ -463,7 +462,7 @@ func (s *ScreenRecordScript) detectVideoDevice() (string, error) {
 
 // detectAudioInputDevice detecta o dispositivo de microfone
 func (s *ScreenRecordScript) detectAudioInputDevice() (string, error) {
-	cmd := exec.Command(ffmpegExePath, "-list_devices", "true", "-f", "dshow", "-i", "dummy")
+	cmd := hiddenCmd(ffmpegExePath, "-list_devices", "true", "-f", "dshow", "-i", "dummy")
 	output, _ := cmd.CombinedOutput()
 
 	lines := strings.Split(string(output), "\n")
@@ -518,7 +517,7 @@ func (s *ScreenRecordScript) detectAudioInputDevice() (string, error) {
 
 // detectAudioOutputDevice detecta o dispositivo de áudio do sistema (loopback)
 func (s *ScreenRecordScript) detectAudioOutputDevice() (string, error) {
-	cmd := exec.Command(ffmpegExePath, "-list_devices", "true", "-f", "dshow", "-i", "dummy")
+	cmd := hiddenCmd(ffmpegExePath, "-list_devices", "true", "-f", "dshow", "-i", "dummy")
 	output, _ := cmd.CombinedOutput()
 
 	lines := strings.Split(string(output), "\n")
@@ -661,9 +660,7 @@ func downloadFile(urlStr, dest string) error {
 }
 
 func runPowershellExpand(zipPath, dest string) error {
-	cmd := exec.Command("powershell", "-NoProfile", "-Command", "Expand-Archive", "-LiteralPath", zipPath, "-DestinationPath", dest, "-Force")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd := hiddenCmd("powershell", "-NoProfile", "-Command", "Expand-Archive", "-LiteralPath", zipPath, "-DestinationPath", dest, "-Force")
 	return cmd.Run()
 }
 
