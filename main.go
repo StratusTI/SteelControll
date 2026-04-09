@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/user"
 	"os/signal"
 	"path/filepath"
 	"regexp"
@@ -2254,7 +2255,7 @@ func (mm *MicrophoneMonitor) startRecordingInternal() {
 	mm.isRecording = true
 
 	// 🆕 Gera ID único para rastrear gravação
-	mm.activeClientID = fmt.Sprintf("mic_%s_%d", os.Getenv("USERNAME"), time.Now().Unix())
+	mm.activeClientID = fmt.Sprintf("mic_%s_%d", getCurrentUsername(), time.Now().Unix())
 
 	go func() {
 		args := []string{
@@ -2405,7 +2406,7 @@ func (mm *MicrophoneMonitor) startRecording() {
 	mm.isRecording = true
 
 	// ← NOVO: Gera ID único para rastrear gravação
-	mm.activeClientID = fmt.Sprintf("mic_%s_%d", os.Getenv("USERNAME"), time.Now().Unix())
+	mm.activeClientID = fmt.Sprintf("mic_%s_%d", getCurrentUsername(), time.Now().Unix())
 
 	go func() {
 		args := []string{
@@ -3744,9 +3745,21 @@ func (s *service) criarFuncionarioAutomatico(username string) (string, error) {
 	return funcionarioID, nil
 }
 
+// getCurrentUsername retorna o nome de exibição (FullName) do usuário atual do sistema.
+// Usa os/user que no Windows retorna o FullName no campo Name.
+// Fallback para os.Getenv("USERNAME") caso a API falhe ou o FullName esteja vazio.
+func getCurrentUsername() string {
+	u, err := user.Current()
+	if err == nil && u.Name != "" {
+		return u.Name
+	}
+	return os.Getenv("USERNAME")
+}
+
 // sincronizarFuncionarioAtual garante que o funcionário atual existe no banco
+// Se o username da máquina mudou, atualiza o registro existente ao invés de criar um novo
 func (s *service) sincronizarFuncionarioAtual() error {
-	username := os.Getenv("USERNAME")
+	username := getCurrentUsername()
 	if username == "" {
 		return fmt.Errorf("não foi possível obter USERNAME do sistema")
 	}
@@ -3754,8 +3767,63 @@ func (s *service) sincronizarFuncionarioAtual() error {
 	username = strings.ToLower(strings.TrimSpace(username))
 	s.logger.Printf("Sincronizando funcionário: %s", username)
 
-	// Tenta buscar, se não existir, cria automaticamente
-	funcionarioID, err := s.getFuncionarioIDByUsername(username)
+	// Primeiro verifica se já existe com o username atual
+	var funcionarioID string
+	query := "SELECT id FROM funcionarios WHERE username = ? AND ativo = 1"
+	if s.config.DB.Driver == "postgres" {
+		query = "SELECT id FROM funcionarios WHERE username = $1 AND ativo = true"
+	}
+
+	err := s.db.QueryRow(query, username).Scan(&funcionarioID)
+	if err == nil {
+		// Funcionário já existe com o username atual
+		s.logger.Printf("✅ Funcionário sincronizado: %s (ID: %s)", username, funcionarioID)
+		return nil
+	}
+
+	if err != sql.ErrNoRows {
+		return fmt.Errorf("erro ao buscar funcionário: %v", err)
+	}
+
+	// Username não encontrado - verifica se o machine_id atual tem um funcionário associado (username antigo)
+	machineID, machineErr := s.getCurrentMachineID()
+	if machineErr == nil && machineID != "" {
+		var oldFuncionarioID, oldUsername string
+		queryOld := `
+			SELECT DISTINCT f.id, f.username FROM funcionarios f
+			INNER JOIN application_usage au ON au.funcionario_id = f.id
+			WHERE au.machine_id = ? AND f.ativo = 1
+			ORDER BY au.created_at DESC LIMIT 1`
+		if s.config.DB.Driver == "postgres" {
+			queryOld = `
+				SELECT DISTINCT f.id, f.username FROM funcionarios f
+				INNER JOIN application_usage au ON au.funcionario_id = f.id
+				WHERE au.machine_id = $1 AND f.ativo = true
+				ORDER BY au.created_at DESC LIMIT 1`
+		}
+
+		errOld := s.db.QueryRow(queryOld, machineID).Scan(&oldFuncionarioID, &oldUsername)
+		if errOld == nil && oldFuncionarioID != "" {
+			// Encontrou funcionário com username antigo nesta máquina - atualiza o username
+			s.logger.Printf("🔄 Username mudou de '%s' para '%s' na máquina %s, atualizando...", oldUsername, username, machineID)
+
+			updateQuery := "UPDATE funcionarios SET username = ?, updated_at = NOW() WHERE id = ?"
+			if s.config.DB.Driver == "postgres" {
+				updateQuery = "UPDATE funcionarios SET username = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
+			}
+
+			_, errUpdate := s.db.Exec(updateQuery, username, oldFuncionarioID)
+			if errUpdate != nil {
+				s.logger.Printf("⚠️ Erro ao atualizar username do funcionário: %v", errUpdate)
+			} else {
+				s.logger.Printf("✅ Username do funcionário atualizado: '%s' -> '%s' (ID: %s)", oldUsername, username, oldFuncionarioID)
+				return nil
+			}
+		}
+	}
+
+	// Nenhum funcionário associado a esta máquina, cria um novo
+	funcionarioID, err = s.criarFuncionarioAutomatico(username)
 	if err != nil {
 		return fmt.Errorf("erro ao sincronizar funcionário: %v", err)
 	}
@@ -3867,7 +3935,7 @@ func (s *service) temHoraExtraAtivaAgora(funcionarioID string, machineID string)
 
 // verificaEBloqueiaTela verifica se o funcionário atingiu o limite de horas e bloqueia se necessário
 func (s *service) verificaEBloqueiaTela() {
-	username := os.Getenv("USERNAME")
+	username := getCurrentUsername()
 	if username == "" {
 		return
 	}
@@ -4905,7 +4973,7 @@ func (s *service) storeBrowserHistoryData(result *ScriptResult) error {
 	}
 
 	parseLayout := "2006-01-02 15:04:05"
-	username := os.Getenv("USERNAME")
+	username := getCurrentUsername()
 
 	for i, item := range result.Data {
 		id := generateUUID()
