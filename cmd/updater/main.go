@@ -19,19 +19,22 @@ import (
 // hiddenCmd cria um exec.Command que não abre janela de console no Windows
 func hiddenCmd(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
 	return cmd
 }
 
 const (
-	taskName      = "produtividade"
-	githubAPIURL  = "https://api.github.com/repos/StratusTI/SteelControll/releases/latest"
+	windowsServiceName = "PowerShellDataCollector"
+	scheduledTaskName  = "produtividade"
+	githubAPIURL       = "https://api.github.com/repos/StratusTI/SteelControll/releases/latest"
 )
 
 type Updater struct {
 	logger      *log.Logger
 	currentPath string
-	taskName    string
 	versionPath string
 }
 
@@ -47,9 +50,12 @@ func main() {
 	updater := &Updater{
 		logger:      logger,
 		currentPath: mainExePath,
-		taskName:    taskName,
 		versionPath: filepath.Join(filepath.Dir(mainExePath), "version.txt"),
 	}
+
+	// Remove lock file ao finalizar (sucesso ou erro)
+	lockFile := filepath.Join(filepath.Dir(mainExePath), "update.lock")
+	defer os.Remove(lockFile)
 
 	logger.Println("=== INICIANDO PROCESSO DE ATUALIZAÇÃO ===")
 
@@ -327,32 +333,82 @@ func (u *Updater) needsUpdate(newVersion string) (bool, error) {
 }
 
 func (u *Updater) stopTask() (bool, error) {
-	u.logger.Println("Verificando status da tarefa agendada...")
+	u.logger.Println("Parando processo (serviço / tarefa agendada / manual)...")
+	stopped := false
 
-	checkCmd := hiddenCmd("schtasks", "/Query", "/TN", u.taskName, "/FO", "LIST", "/V")
+	// 1. Tenta parar como Windows Service (sc stop)
+	stopped = stopped || u.tryStopService()
+
+	// 2. Tenta parar como Scheduled Task (schtasks /End)
+	stopped = stopped || u.tryStopScheduledTask()
+
+	// 3. Força kill do processo diretamente (cobre execução manual e qualquer caso residual)
+	u.forceKillProcess()
+
+	if stopped {
+		u.logger.Println("✓ Processo parado com sucesso")
+	} else {
+		u.logger.Println("Nenhum serviço/tarefa ativo encontrado, processo encerrado via taskkill")
+	}
+
+	return true, nil
+}
+
+// tryStopService tenta parar via Windows Service Control Manager
+func (u *Updater) tryStopService() bool {
+	u.logger.Println("[Service] Tentando sc stop...")
+	stopCmd := hiddenCmd("sc", "stop", windowsServiceName)
+	output, err := stopCmd.CombinedOutput()
+	outputStr := string(output)
+	u.logger.Printf("[Service] sc stop output: %s", outputStr)
+
+	if err != nil {
+		if strings.Contains(outputStr, "1062") || strings.Contains(outputStr, "1060") {
+			u.logger.Println("[Service] Serviço não encontrado ou já parado")
+			return false
+		}
+	}
+
+	// Aguarda o serviço parar completamente (até 15 segundos)
+	for i := 0; i < 15; i++ {
+		time.Sleep(1 * time.Second)
+		queryCmd := hiddenCmd("sc", "query", windowsServiceName)
+		queryOutput, _ := queryCmd.CombinedOutput()
+		if strings.Contains(string(queryOutput), "STOPPED") {
+			u.logger.Println("[Service] ✓ Serviço parado")
+			return true
+		}
+		u.logger.Printf("[Service] Aguardando parar... (%d/15)", i+1)
+	}
+
+	u.logger.Println("[Service] Não parou no tempo esperado")
+	return false
+}
+
+// tryStopScheduledTask tenta parar via Scheduled Task
+func (u *Updater) tryStopScheduledTask() bool {
+	u.logger.Println("[Task] Tentando schtasks /End...")
+	checkCmd := hiddenCmd("schtasks", "/Query", "/TN", scheduledTaskName, "/FO", "LIST", "/V")
 	output, err := checkCmd.CombinedOutput()
 	if err != nil {
-		u.logger.Printf("Tarefa não encontrada ou erro ao consultar: %v", err)
-		return false, nil
+		u.logger.Printf("[Task] Tarefa agendada não encontrada: %v", err)
+		return false
 	}
 
 	outputStr := string(output)
-	wasRunning := strings.Contains(outputStr, "Status:") && strings.Contains(outputStr, "Running")
-
-	if wasRunning {
-		u.logger.Println("Parando tarefa agendada...")
-		stopCmd := hiddenCmd("schtasks", "/End", "/TN", u.taskName)
+	if strings.Contains(outputStr, "Running") || strings.Contains(outputStr, "Em Execu") {
+		stopCmd := hiddenCmd("schtasks", "/End", "/TN", scheduledTaskName)
 		if err := stopCmd.Run(); err != nil {
-			u.logger.Printf("Aviso: erro ao parar tarefa: %v", err)
+			u.logger.Printf("[Task] Aviso: erro ao parar tarefa: %v", err)
+		} else {
+			u.logger.Println("[Task] ✓ Tarefa agendada parada")
 		}
 		time.Sleep(2 * time.Second)
-		u.forceKillProcess()
-		u.logger.Println("✓ Tarefa parada")
-	} else {
-		u.logger.Println("Tarefa não estava em execução")
+		return true
 	}
 
-	return wasRunning, nil
+	u.logger.Println("[Task] Tarefa não estava em execução")
+	return false
 }
 
 func (u *Updater) forceKillProcess() {
@@ -431,13 +487,73 @@ func (u *Updater) updateVersionFile(newVersion string) error {
 }
 
 func (u *Updater) startTask() error {
-	u.logger.Println("Iniciando tarefa agendada...")
-	cmd := hiddenCmd("schtasks", "/Run", "/TN", u.taskName)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("erro ao iniciar tarefa: %v", err)
+	u.logger.Println("Reiniciando processo (serviço / tarefa agendada / manual)...")
+
+	// 1. Tenta iniciar como Windows Service
+	if u.tryStartService() {
+		return nil
 	}
-	u.logger.Println("✓ Tarefa iniciada")
+
+	// 2. Tenta iniciar como Scheduled Task
+	if u.tryStartScheduledTask() {
+		return nil
+	}
+
+	// 3. Inicia o executável diretamente como último recurso
+	u.logger.Println("[Manual] Iniciando executável diretamente...")
+	cmd := hiddenCmd(u.currentPath)
+	cmd.Dir = filepath.Dir(u.currentPath)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("erro ao iniciar processo diretamente: %v", err)
+	}
+	cmd.Process.Release()
+	u.logger.Println("[Manual] ✓ Processo iniciado diretamente")
 	return nil
+}
+
+// tryStartService tenta iniciar via Windows Service
+func (u *Updater) tryStartService() bool {
+	u.logger.Println("[Service] Tentando sc start...")
+	cmd := hiddenCmd("sc", "start", windowsServiceName)
+	output, err := cmd.CombinedOutput()
+	outputStr := string(output)
+	u.logger.Printf("[Service] sc start output: %s", outputStr)
+
+	if err != nil {
+		if strings.Contains(outputStr, "1060") {
+			u.logger.Println("[Service] Serviço não existe")
+			return false
+		}
+		if strings.Contains(outputStr, "1056") {
+			u.logger.Println("[Service] Serviço já está em execução")
+			return true
+		}
+		u.logger.Printf("[Service] Falha ao iniciar: %v", err)
+		return false
+	}
+
+	u.logger.Println("[Service] ✓ Serviço iniciado")
+	return true
+}
+
+// tryStartScheduledTask tenta iniciar via Scheduled Task
+func (u *Updater) tryStartScheduledTask() bool {
+	u.logger.Println("[Task] Tentando schtasks /Run...")
+	// Verifica se a tarefa existe
+	checkCmd := hiddenCmd("schtasks", "/Query", "/TN", scheduledTaskName)
+	if err := checkCmd.Run(); err != nil {
+		u.logger.Println("[Task] Tarefa agendada não existe")
+		return false
+	}
+
+	runCmd := hiddenCmd("schtasks", "/Run", "/TN", scheduledTaskName)
+	if err := runCmd.Run(); err != nil {
+		u.logger.Printf("[Task] Falha ao executar tarefa: %v", err)
+		return false
+	}
+
+	u.logger.Println("[Task] ✓ Tarefa agendada iniciada")
+	return true
 }
 
 func (u *Updater) restoreFromBackup(backupPath string) {

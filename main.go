@@ -120,12 +120,13 @@ type ScriptTracker struct {
 }
 
 type service struct {
-	config        *ServiceConfig
-	db            *sql.DB
-	logger        *log.Logger
-	machineID     string
-	scripts       map[string]scripts.Script
-	scriptTracker *ScriptTracker // NOVO
+	config          *ServiceConfig
+	db              *sql.DB
+	logger          *log.Logger
+	machineID       string
+	scripts         map[string]scripts.Script
+	scriptTracker   *ScriptTracker // NOVO
+	updateInProgress sync.Once     // Garante que o update só roda uma vez
 }
 
 // PowerShell Script resultado
@@ -671,6 +672,17 @@ func (s *service) checkForUpdate() {
 
 	if vNew.GreaterThan(vCurrent) {
 		s.logger.Printf("🔄 NOVA VERSÃO DISPONÍVEL! %s -> %s", current, remoteVersion)
+
+		// Verifica se já existe um update em andamento (lock file)
+		exePath, _ := os.Executable()
+		lockFile := filepath.Join(filepath.Dir(exePath), "update.lock")
+		if _, err := os.Stat(lockFile); err == nil {
+			s.logger.Println("⚠️ Update já em andamento (update.lock existe), ignorando")
+			return
+		}
+		// Cria lock file
+		os.WriteFile(lockFile, []byte(fmt.Sprintf("updating to %s at %s", remoteVersion, time.Now().Format(time.RFC3339))), 0644)
+
 		s.logger.Println("Iniciando processo de download e atualização...")
 		go s.downloadAndUpdate(downloadURL, remoteVersion)
 	} else if vNew.Equal(vCurrent) {
@@ -748,7 +760,10 @@ func (s *service) downloadAndUpdate(downloadURL, newVersion string) {
 	// 4. Inicia o updater que vai: parar o serviço, substituir o .exe, reiniciar
 	s.logger.Println("Iniciando updater para aplicar atualização...")
 	cmd := exec.Command(updaterPath, exePath)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
 	cmd.Dir = exeDir
 
 	logFile := filepath.Join(exeDir, "updater.log")
@@ -765,6 +780,10 @@ func (s *service) downloadAndUpdate(downloadURL, newVersion string) {
 	}
 
 	s.logger.Printf("✓ Updater iniciado com PID: %d", cmd.Process.Pid)
+	s.logger.Printf("O updater irá parar este serviço, aplicar a atualização e reiniciar.")
+
+	// Libera o processo do updater para que ele sobreviva à parada do serviço
+	cmd.Process.Release()
 	s.logger.Printf("Verifique %s para acompanhar o progresso.", logFile)
 }
 
