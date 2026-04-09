@@ -28,7 +28,13 @@ jobs:
         run: |
           go build -ldflags="-s -w -H windowsgui" -o Produtividade.exe main.go
 
+      - name: Build Updater
+        run: |
+          go build -ldflags="-s -w" -o update.exe ./cmd/updater
+
       - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
         with:
-          files: Produtividade.exe
+          files: |
+            Produtividade.exe
+            update.exe

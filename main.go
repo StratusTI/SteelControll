@@ -583,78 +583,79 @@ func (s *service) checkForUpdate() {
 		return
 	}
 
-	// Log do diretório atual para debug
-	if wd, err := os.Getwd(); err == nil {
-		s.logger.Printf("Diretório de trabalho: %s", wd)
-	}
+	// Busca a release mais recente via GitHub API
+	apiURL := "https://api.github.com/repos/StratusTI/SteelControll/releases/latest"
+	s.logger.Printf("Consultando GitHub Releases: %s", apiURL)
 
-	// Log do caminho do executável
-	if exePath, err := os.Executable(); err == nil {
-		s.logger.Printf("Caminho do executável: %s", exePath)
-	}
-
-	url := "https://painel.stratustelecom.com.br/main/produtividade/update.json"
-	s.logger.Printf("Acessando URL: %s", url)
-
-	// Cliente HTTP com timeout
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	resp, err := client.Get(url)
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		s.logger.Printf("ERRO ao acessar URL de atualização: %v", err)
+		s.logger.Printf("ERRO ao criar request: %v", err)
+		return
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		s.logger.Printf("ERRO ao acessar GitHub API: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	s.logger.Printf("Status HTTP recebido: %d", resp.StatusCode)
-
 	if resp.StatusCode != http.StatusOK {
-		s.logger.Printf("ERRO: Status HTTP inválido: %d", resp.StatusCode)
+		s.logger.Printf("ERRO: Status HTTP inválido da GitHub API: %d", resp.StatusCode)
 		return
 	}
 
-	// Lê e faz log do corpo da resposta para debug
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		s.logger.Printf("ERRO ao ler corpo da resposta: %v", err)
+		s.logger.Printf("ERRO ao ler resposta: %v", err)
 		return
 	}
 
-	s.logger.Printf("Resposta recebida: %s", string(bodyBytes))
-
-	var update struct {
-		Version string `json:"version"`
-		URL     string `json:"url"`
+	var release struct {
+		TagName string `json:"tag_name"`
+		Assets  []struct {
+			Name               string `json:"name"`
+			BrowserDownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
 	}
 
-	if err := json.Unmarshal(bodyBytes, &update); err != nil {
-		s.logger.Printf("ERRO ao decodificar JSON: %v", err)
-		s.logger.Printf("JSON recebido: %s", string(bodyBytes))
+	if err := json.Unmarshal(bodyBytes, &release); err != nil {
+		s.logger.Printf("ERRO ao decodificar JSON da release: %v", err)
 		return
 	}
 
-	s.logger.Printf("Versão remota encontrada: '%s'", update.Version)
-	s.logger.Printf("URL de download: '%s'", update.URL)
+	// Remove o prefixo "v" da tag para comparação de versão
+	remoteVersion := strings.TrimPrefix(release.TagName, "v")
+	s.logger.Printf("Versão remota encontrada: '%s'", remoteVersion)
+
+	// Busca o asset .exe
+	var downloadURL string
+	for _, asset := range release.Assets {
+		if strings.HasSuffix(strings.ToLower(asset.Name), ".exe") && asset.Name != "update.exe" {
+			downloadURL = asset.BrowserDownloadURL
+			break
+		}
+	}
+
+	if downloadURL == "" {
+		s.logger.Println("ERRO: Nenhum .exe encontrado nos assets da release")
+		return
+	}
+
+	s.logger.Printf("URL de download: '%s'", downloadURL)
 
 	current := getCurrentVersion()
 	s.logger.Printf("Versão atual: '%s'", current)
 
-	// Validação das versões
-	if update.Version == "" {
+	if remoteVersion == "" {
 		s.logger.Println("ERRO: Versão remota está vazia")
 		return
 	}
 
-	if update.URL == "" {
-		s.logger.Println("ERRO: URL de download está vazia")
-		return
-	}
-
-	// Comparação de versões com tratamento de erro
 	vCurrent, err1 := version.NewVersion(current)
-	vNew, err2 := version.NewVersion(update.Version)
+	vNew, err2 := version.NewVersion(remoteVersion)
 
 	if err1 != nil {
 		s.logger.Printf("ERRO ao parsear versão atual '%s': %v", current, err1)
@@ -662,82 +663,103 @@ func (s *service) checkForUpdate() {
 	}
 
 	if err2 != nil {
-		s.logger.Printf("ERRO ao parsear versão remota '%s': %v", update.Version, err2)
+		s.logger.Printf("ERRO ao parsear versão remota '%s': %v", remoteVersion, err2)
 		return
 	}
 
 	s.logger.Printf("Comparando versões: atual=%s, remota=%s", vCurrent.String(), vNew.String())
 
 	if vNew.GreaterThan(vCurrent) {
-		s.logger.Printf("🔄 NOVA VERSÃO DISPONÍVEL! %s -> %s", current, update.Version)
+		s.logger.Printf("🔄 NOVA VERSÃO DISPONÍVEL! %s -> %s", current, remoteVersion)
 		s.logger.Println("Iniciando processo de download e atualização...")
-		go s.downloadAndUpdate(update.URL, update.Version)
+		go s.downloadAndUpdate(downloadURL, remoteVersion)
 	} else if vNew.Equal(vCurrent) {
 		s.logger.Printf("✅ Sistema está na versão mais recente: %s", current)
 	} else {
-		s.logger.Printf("ℹ️ Versão local é mais nova que a remota: local=%s, remota=%s", current, update.Version)
+		s.logger.Printf("ℹ️ Versão local é mais nova que a remota: local=%s, remota=%s", current, remoteVersion)
 	}
 }
 
 func (s *service) downloadAndUpdate(downloadURL, newVersion string) {
-	s.logger.Printf("=== STARTING UPDATE PROCESS ===")
-	s.logger.Printf("Download URL: %s", downloadURL)
-	s.logger.Printf("New version: %s", newVersion)
+	s.logger.Printf("=== INICIANDO PROCESSO DE ATUALIZAÇÃO ===")
+	s.logger.Printf("URL de download: %s", downloadURL)
+	s.logger.Printf("Nova versão: %s", newVersion)
 
 	exePath, err := os.Executable()
 	if err != nil {
-		s.logger.Printf("ERROR getting executable path: %v", err)
+		s.logger.Printf("ERRO ao obter caminho do executável: %v", err)
 		return
 	}
 
-	s.logger.Printf("Current executable: %s", exePath)
+	exeDir := filepath.Dir(exePath)
+	s.logger.Printf("Executável atual: %s", exePath)
 
-	// Verifica se o updater existe
-	updaterPath := filepath.Join(filepath.Dir(exePath), "update.exe")
+	// 1. Baixa o novo executável para um arquivo temporário
+	s.logger.Println("Baixando nova versão...")
+	client := &http.Client{Timeout: 10 * time.Minute}
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		s.logger.Printf("ERRO ao baixar atualização: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		s.logger.Printf("ERRO: Status HTTP inválido no download: %d", resp.StatusCode)
+		return
+	}
+
+	tempPath := filepath.Join(exeDir, "produtividade_new.exe")
+	tempFile, err := os.Create(tempPath)
+	if err != nil {
+		s.logger.Printf("ERRO ao criar arquivo temporário: %v", err)
+		return
+	}
+
+	size, err := io.Copy(tempFile, resp.Body)
+	tempFile.Close()
+	if err != nil {
+		s.logger.Printf("ERRO ao salvar download: %v", err)
+		os.Remove(tempPath)
+		return
+	}
+
+	if size < 1024*10 {
+		s.logger.Printf("ERRO: arquivo baixado muito pequeno (%d bytes), abortando", size)
+		os.Remove(tempPath)
+		return
+	}
+
+	s.logger.Printf("✓ Download concluído: %d bytes", size)
+
+	// 2. Verifica se o updater existe
+	updaterPath := filepath.Join(exeDir, "update.exe")
 	if _, err := os.Stat(updaterPath); os.IsNotExist(err) {
-		s.logger.Printf("ERROR: update.exe not found at %s", updaterPath)
-		s.logger.Printf("Please ensure update.exe is in the same directory as the main executable")
+		s.logger.Printf("ERRO: update.exe não encontrado em %s", updaterPath)
+		os.Remove(tempPath)
 		return
 	}
 
-	s.logger.Printf("Updater found at: %s", updaterPath)
-
-	// CORREÇÃO: Passa o caminho do executável como argumento
+	// 3. Inicia o updater que vai: parar o serviço, substituir o .exe, reiniciar
+	s.logger.Println("Iniciando updater para aplicar atualização...")
 	cmd := exec.Command(updaterPath, exePath)
-	cmd.Dir = filepath.Dir(exePath)
+	cmd.Dir = exeDir
 
-	// Configura saída para um arquivo de log do updater
-	logFile := filepath.Join(filepath.Dir(exePath), "updater.log")
+	logFile := filepath.Join(exeDir, "updater.log")
 	if logFileHandle, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
 		cmd.Stdout = logFileHandle
 		cmd.Stderr = logFileHandle
 		defer logFileHandle.Close()
 	}
 
-	// IMPORTANTE: Usa Start() em vez de Run() para não bloquear
 	if err := cmd.Start(); err != nil {
-		s.logger.Printf("ERROR starting updater: %v", err)
+		s.logger.Printf("ERRO ao iniciar updater: %v", err)
+		os.Remove(tempPath)
 		return
 	}
 
-	s.logger.Printf("✓ Updater started with PID: %d", cmd.Process.Pid)
-	s.logger.Println("✓ Update process initiated! Service will be updated automatically.")
-	s.logger.Printf("Check %s for update progress.", logFile)
-
-	// Aguarda um pouco antes de parar o serviço
-	time.Sleep(5 * time.Second)
-
-	// CORREÇÃO: Para o serviço corretamente
-	// Em vez de chamar stopService(), devemos encerrar o processo atual
-	s.logger.Println("Exiting current process to allow update...")
-
-	// Salva a versão atual antes de sair
-	if err := saveCurrentVersion(newVersion); err != nil {
-		s.logger.Printf("Warning: failed to save version: %v", err)
-	}
-
-	// Encerra o processo atual
-	exec.Command("update.exe", "/run", newVersion, downloadURL).Start()
+	s.logger.Printf("✓ Updater iniciado com PID: %d", cmd.Process.Pid)
+	s.logger.Printf("Verifique %s para acompanhar o progresso.", logFile)
 }
 
 func (s *service) startBackgroundTasks(stopChan chan struct{}) {
@@ -873,6 +895,10 @@ func (s *service) startBackgroundTasks(stopChan chan struct{}) {
 
 	// 6️⃣ Goroutine para verificação de updates (a cada 12 horas)
 	go func() {
+		// Verifica na inicialização após 1 minuto
+		time.Sleep(1 * time.Minute)
+		s.checkForUpdate()
+
 		ticker := time.NewTicker(12 * time.Hour)
 		defer ticker.Stop()
 		s.logger.Println("🔄 Goroutine de verificação de updates INICIADA (intervalo: 12 horas)")
@@ -880,7 +906,14 @@ func (s *service) startBackgroundTasks(stopChan chan struct{}) {
 		for {
 			select {
 			case <-ticker.C:
-				// go s.checkForUpdate()
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							s.logger.Printf("⚠️ Panic em checkForUpdate: %v", r)
+						}
+					}()
+					s.checkForUpdate()
+				}()
 			case <-stopChan:
 				s.logger.Println("🛑 Parando goroutine de verificação de updates")
 				return
