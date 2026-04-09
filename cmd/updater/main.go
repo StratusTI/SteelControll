@@ -108,11 +108,13 @@ func (u *Updater) performUpdate() error {
 
 	u.logger.Println("✓ Executável substituído")
 
-	// 6. Atualiza arquivo de versão
-	if remoteVersion != "unknown" {
-		if err := u.updateVersionFile(remoteVersion); err != nil {
-			u.logger.Printf("Aviso: erro ao atualizar arquivo de versão: %v", err)
-		}
+	// 6. Atualiza arquivo de versão (sempre atualiza para evitar loop de update)
+	if remoteVersion == "unknown" {
+		remoteVersion = "999.0.0" // Força versão alta para não repetir o update
+		u.logger.Println("Aviso: versão remota desconhecida, usando versão placeholder para evitar loop")
+	}
+	if err := u.updateVersionFile(remoteVersion); err != nil {
+		u.logger.Printf("Aviso: erro ao atualizar arquivo de versão: %v", err)
 	}
 
 	// 7. Reinicia a tarefa

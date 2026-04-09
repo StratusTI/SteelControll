@@ -732,7 +732,12 @@ func (s *service) downloadAndUpdate(downloadURL, newVersion string) {
 
 	s.logger.Printf("✓ Download concluído: %d bytes", size)
 
-	// 2. Verifica se o updater existe
+	// 2. Atualiza version.txt ANTES de lançar o updater para evitar loop
+	if err := saveCurrentVersion(newVersion); err != nil {
+		s.logger.Printf("Aviso: erro ao salvar versão: %v", err)
+	}
+
+	// 3. Verifica se o updater existe
 	updaterPath := filepath.Join(exeDir, "update.exe")
 	if _, err := os.Stat(updaterPath); os.IsNotExist(err) {
 		s.logger.Printf("ERRO: update.exe não encontrado em %s", updaterPath)
@@ -740,7 +745,7 @@ func (s *service) downloadAndUpdate(downloadURL, newVersion string) {
 		return
 	}
 
-	// 3. Inicia o updater que vai: parar o serviço, substituir o .exe, reiniciar
+	// 4. Inicia o updater que vai: parar o serviço, substituir o .exe, reiniciar
 	s.logger.Println("Iniciando updater para aplicar atualização...")
 	cmd := exec.Command(updaterPath, exePath)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
