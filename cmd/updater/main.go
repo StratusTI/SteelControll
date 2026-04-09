@@ -10,10 +10,18 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	version "github.com/hashicorp/go-version"
 )
+
+// hiddenCmd cria um exec.Command que não abre janela de console no Windows
+func hiddenCmd(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return cmd
+}
 
 const (
 	taskName      = "produtividade"
@@ -319,7 +327,7 @@ func (u *Updater) needsUpdate(newVersion string) (bool, error) {
 func (u *Updater) stopTask() (bool, error) {
 	u.logger.Println("Verificando status da tarefa agendada...")
 
-	checkCmd := exec.Command("schtasks", "/Query", "/TN", u.taskName, "/FO", "LIST", "/V")
+	checkCmd := hiddenCmd("schtasks", "/Query", "/TN", u.taskName, "/FO", "LIST", "/V")
 	output, err := checkCmd.CombinedOutput()
 	if err != nil {
 		u.logger.Printf("Tarefa não encontrada ou erro ao consultar: %v", err)
@@ -331,7 +339,7 @@ func (u *Updater) stopTask() (bool, error) {
 
 	if wasRunning {
 		u.logger.Println("Parando tarefa agendada...")
-		stopCmd := exec.Command("schtasks", "/End", "/TN", u.taskName)
+		stopCmd := hiddenCmd("schtasks", "/End", "/TN", u.taskName)
 		if err := stopCmd.Run(); err != nil {
 			u.logger.Printf("Aviso: erro ao parar tarefa: %v", err)
 		}
@@ -347,7 +355,7 @@ func (u *Updater) stopTask() (bool, error) {
 
 func (u *Updater) forceKillProcess() {
 	exeName := filepath.Base(u.currentPath)
-	cmd := exec.Command("taskkill", "/F", "/IM", exeName)
+	cmd := hiddenCmd("taskkill", "/F", "/IM", exeName)
 	if err := cmd.Run(); err != nil {
 		u.logger.Printf("Processo não estava rodando ou já foi encerrado: %v", err)
 	} else {
@@ -422,7 +430,7 @@ func (u *Updater) updateVersionFile(newVersion string) error {
 
 func (u *Updater) startTask() error {
 	u.logger.Println("Iniciando tarefa agendada...")
-	cmd := exec.Command("schtasks", "/Run", "/TN", u.taskName)
+	cmd := hiddenCmd("schtasks", "/Run", "/TN", u.taskName)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("erro ao iniciar tarefa: %v", err)
 	}

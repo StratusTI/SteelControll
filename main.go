@@ -743,6 +743,7 @@ func (s *service) downloadAndUpdate(downloadURL, newVersion string) {
 	// 3. Inicia o updater que vai: parar o serviço, substituir o .exe, reiniciar
 	s.logger.Println("Iniciando updater para aplicar atualização...")
 	cmd := exec.Command(updaterPath, exePath)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	cmd.Dir = exeDir
 
 	logFile := filepath.Join(exeDir, "updater.log")
