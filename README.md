@@ -1,4 +1,4 @@
-# Steel Control
+# Steel ControlL
 
 ## Visão Geral
 
@@ -41,7 +41,7 @@ O sistema **não** é dashboard, **não** é sistema de RH e **não** faz avalia
 │   └── ...
 ├── config.json         # Configuração base (ambiente de teste)
 ├── main.go             # Orquestração principal do agente
-├── update.go           # Lógica de atualização do sistema
+├── cmd/updater/        # Lógica de atualização do sistema
 ├── go.mod              # Definição do módulo
 ├── go.sum              # Lockfile de dependências
 ```
@@ -111,7 +111,7 @@ O processo deve ser executado de forma contínua. A estratégia de inicializaç�
 
 * Os scripts **não se comunicam entre si**
 * O `main.go` orquestra execução, intervalos e consolidação
-* `update.go` trata evolução controlada do agente
+* `cmd/updater/` trata evolução controlada do agente
 
 ---
 
@@ -141,7 +141,7 @@ O processo deve ser executado de forma contínua. A estratégia de inicializaç�
 4. Rodar `go build`
 5. Executar o binário em ambiente de teste
 
-Se você entendeu o papel de `scripts`, `main.go` e `update.go`, você já entendeu o sistema.
+Se você entendeu o papel de `scripts`, `main.go` e `cmd/updater/`, você já entendeu o sistema.
 
 ---
 
