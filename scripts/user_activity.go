@@ -4,6 +4,7 @@ package scripts
 import (
 	"os/user"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -17,6 +18,7 @@ const (
 	WH_MOUSE_LL              = 14
 	WM_KEYDOWN_USER_ACTIVITY = 0x0100 // Renamed to avoid conflict
 	WM_MOUSEMOVE             = 0x0200
+	WM_QUIT                  = 0x0012
 )
 
 type LASTINPUTINFO struct {
@@ -43,11 +45,15 @@ type UserActivityScript struct {
 	procUnhookWindowsHookEx *syscall.LazyProc
 	procCallNextHookEx      *syscall.LazyProc
 	procGetMessage          *syscall.LazyProc
+	procPostThreadMessage   *syscall.LazyProc
 	procGetLastInputInfo    *syscall.LazyProc
 	procGetModuleHandle     *syscall.LazyProc
 	procGetTickCount        *syscall.LazyProc
 	globalMouseEvents       int64
 	globalKeyboardEvents    int64
+	hookThreadID            uint32
+	hookRunning             int32
+	hookMu                  sync.Mutex
 }
 
 func (ua *UserActivityScript) Name() string {
@@ -75,8 +81,20 @@ func (ua *UserActivityScript) Execute(args ...string) ([]map[string]interface{},
 
 	username := currentUser.Username
 
+	// Reseta contadores
+	atomic.StoreInt64(&ua.globalMouseEvents, 0)
+	atomic.StoreInt64(&ua.globalKeyboardEvents, 0)
+
 	// Inicia hooks em background
-	go ua.startHooks()
+	hookReady := make(chan struct{})
+	go ua.startHooks(hookReady)
+
+	// Espera os hooks estarem instalados antes de começar a monitorar
+	select {
+	case <-hookReady:
+	case <-time.After(3 * time.Second):
+		// Timeout — continua mesmo sem hooks
+	}
 
 	var userActivityLog []Session
 	startTime := time.Now()
@@ -138,6 +156,9 @@ func (ua *UserActivityScript) Execute(args ...string) ([]map[string]interface{},
 		time.Sleep(time.Duration(SampleInterval) * time.Second)
 	}
 
+	// Para os hooks antes de retornar
+	ua.stopHooks()
+
 	if currentSession != nil {
 		currentTime := time.Now()
 		endStr := currentTime.Format(timeLayout)
@@ -175,6 +196,7 @@ func (ua *UserActivityScript) initDLLs() {
 		ua.procUnhookWindowsHookEx = ua.user32.NewProc("UnhookWindowsHookEx")
 		ua.procCallNextHookEx = ua.user32.NewProc("CallNextHookEx")
 		ua.procGetMessage = ua.user32.NewProc("GetMessageW")
+		ua.procPostThreadMessage = ua.user32.NewProc("PostThreadMessageW")
 		ua.procGetLastInputInfo = ua.user32.NewProc("GetLastInputInfo")
 		ua.procGetModuleHandle = ua.kernel32.NewProc("GetModuleHandleW")
 		ua.procGetTickCount = ua.kernel32.NewProc("GetTickCount")
@@ -197,9 +219,24 @@ func (ua *UserActivityScript) keyboardHook(nCode int, wParam uintptr, lParam uin
 	return ret
 }
 
-func (ua *UserActivityScript) startHooks() {
+func (ua *UserActivityScript) startHooks(ready chan<- struct{}) {
+	ua.hookMu.Lock()
+	// Se já existe um hook rodando, para ele primeiro
+	if atomic.LoadInt32(&ua.hookRunning) == 1 {
+		ua.hookMu.Unlock()
+		ua.stopHooks()
+		ua.hookMu.Lock()
+	}
+	ua.hookMu.Unlock()
+
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+
+	// Captura o thread ID da OS thread atual para poder enviar WM_QUIT depois
+	procGetCurrentThreadId := ua.kernel32.NewProc("GetCurrentThreadId")
+	tid, _, _ := procGetCurrentThreadId.Call()
+	atomic.StoreUint32(&ua.hookThreadID, uint32(tid))
+	atomic.StoreInt32(&ua.hookRunning, 1)
 
 	mod, _, _ := ua.procGetModuleHandle.Call(0)
 
@@ -208,6 +245,9 @@ func (ua *UserActivityScript) startHooks() {
 
 	hMouseHook, _, _ := ua.procSetWindowsHookEx.Call(uintptr(WH_MOUSE_LL), mouseCallback, mod, 0)
 	hKbdHook, _, _ := ua.procSetWindowsHookEx.Call(uintptr(WH_KEYBOARD_LL), kbdCallback, mod, 0)
+
+	// Sinaliza que os hooks estão instalados
+	close(ready)
 
 	var msg struct {
 		hwnd    syscall.Handle
@@ -225,8 +265,28 @@ func (ua *UserActivityScript) startHooks() {
 		}
 	}
 
+	// Remove os hooks ao sair do loop
 	ua.procUnhookWindowsHookEx.Call(hMouseHook)
 	ua.procUnhookWindowsHookEx.Call(hKbdHook)
+	atomic.StoreInt32(&ua.hookRunning, 0)
+}
+
+func (ua *UserActivityScript) stopHooks() {
+	if atomic.LoadInt32(&ua.hookRunning) == 0 {
+		return
+	}
+	tid := atomic.LoadUint32(&ua.hookThreadID)
+	if tid != 0 {
+		// Envia WM_QUIT para a thread dos hooks, fazendo GetMessage retornar 0
+		ua.procPostThreadMessage.Call(uintptr(tid), WM_QUIT, 0, 0)
+		// Espera os hooks serem removidos
+		for i := 0; i < 50; i++ {
+			if atomic.LoadInt32(&ua.hookRunning) == 0 {
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
 }
 
 func (ua *UserActivityScript) getIdleTime() float64 {
