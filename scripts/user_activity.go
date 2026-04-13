@@ -2,8 +2,10 @@
 package scripts
 
 import (
-	"os/user"
+	"fmt"
+	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -69,17 +71,15 @@ func (ua *UserActivityScript) Execute(args ...string) ([]map[string]interface{},
 
 	ua.initDLLs()
 
-	currentUser, err := user.Current()
-	if err != nil {
+	username := strings.ToLower(strings.TrimSpace(os.Getenv("USERNAME")))
+	if username == "" {
 		return []map[string]interface{}{
 			{
 				"error":  "não foi possível obter usuário atual",
 				"status": "error",
 			},
-		}, err
+		}, fmt.Errorf("username vazio")
 	}
-
-	username := currentUser.Username
 
 	// Reseta contadores
 	atomic.StoreInt64(&ua.globalMouseEvents, 0)
