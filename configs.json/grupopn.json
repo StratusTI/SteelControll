@@ -1,0 +1,20 @@
+{
+  "database": {
+    "driver": "mysql",
+    "host": "172.30.100.215",
+    "port": "3306",
+    "database": "produtividade",
+    "username": "root",
+    "password": "M7a64tl0"
+  },
+  "scripts_path": "C:\\Users\\Public\\produtividade",
+  "log_path": "C:\\Users\\Public\\produtividade\\service.log",
+  "check_interval_minutes": 60,
+  "periodic_scripts_interval_minutes": 15,
+  "ftpServer": "172.30.100.215",
+  "ftpUsername": "steel",
+  "ftpPassword": "M7a64tl0",
+  "obs_websocket_host": "",
+  "obs_websocket_password": "",
+  "obs_executable_path": ""
+}
