@@ -1,17 +1,17 @@
 {
   "database": {
     "driver": "mysql",
-    "host": "172.20.29.218",
+    "host": "172.30.100.230",
     "port": "3306",
     "database": "produtividade",
     "username": "root",
     "password": "M7a64tl0"
   },
-  "scripts_path": "C:\\Users\\gusttavo\\www\\SteelControll\\scripts",
-  "log_path": "C:\\Users\\gusttavo\\www\\SteelControll\\service.log",
+  "scripts_path": "C:\\Users\\Public\\produtividade",
+  "log_path": "C:\\Users\\Public\\produtividade",
   "check_interval_minutes": 60,
   "periodic_scripts_interval_minutes": 15,
-  "ftpServer": "172.20.28.218",
+  "ftpServer": "172.30.100.130",
   "ftpUsername": "steel",
   "ftpPassword": "M7a64tl0",
   "obs_websocket_host": "",

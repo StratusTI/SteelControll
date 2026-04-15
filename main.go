@@ -246,13 +246,13 @@ type MicrophoneMonitor struct {
 }
 
 func main() {
-	// Verifica se está rodando como serviço
-	isIntSess, err := svc.IsAnInteractiveSession()
+	// Verifica se está rodando como serviço Windows
+	isSvc, err := svc.IsWindowsService()
 	if err != nil {
-		log.Fatalf("Erro ao verificar se é sessão interativa: %v", err)
+		log.Fatalf("Erro ao verificar se é serviço: %v", err)
 	}
 
-	if !isIntSess {
+	if isSvc {
 		runService(serviceName, false)
 		return
 	}
