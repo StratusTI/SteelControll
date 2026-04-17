@@ -137,6 +137,7 @@ type service struct {
 	scripts         map[string]scripts.Script
 	scriptTracker   *ScriptTracker // NOVO
 	updateInProgress sync.Once     // Garante que o update só roda uma vez
+	monitorOnce      sync.Once     // Garante que o monitorDBHealth só roda uma vez
 }
 
 // PowerShell Script resultado
@@ -1102,11 +1103,12 @@ func (s *service) connectDB() error {
 		return err
 	}
 
-	// 🔥 CONFIGURAÇÕES OTIMIZADAS DO POOL
-	s.db.SetMaxOpenConns(15)                      // Reduzido para evitar sobrecarga
-	s.db.SetMaxIdleConns(5)                       // Conexões idle prontas
-	s.db.SetConnMaxLifetime(3 * time.Minute)      // Recria conexões a cada 3min
-	s.db.SetConnMaxIdleTime(1 * time.Minute)      // Fecha idle após 1min
+	// 🔥 CONFIGURAÇÕES DO POOL - 1 CONEXÃO POR MÁQUINA
+	// Cada máquina mantém apenas 1 conexão persistente ao banco
+	s.db.SetMaxOpenConns(1)                        // Apenas 1 conexão por máquina
+	s.db.SetMaxIdleConns(1)                        // Mantém a conexão sempre pronta
+	s.db.SetConnMaxLifetime(30 * time.Minute)      // Recicla conexão a cada 30min (reduz churn)
+	s.db.SetConnMaxIdleTime(15 * time.Minute)      // Mantém conexão idle por 15min
 
 	// Testa a conexão
 	if err := s.db.Ping(); err != nil {
@@ -1118,8 +1120,11 @@ func (s *service) connectDB() error {
 	s.logger.Printf("📊 DB Pool configurado: MaxOpen=%d, MaxIdle=%d, OpenConns=%d",
 		stats.MaxOpenConnections, stats.Idle, stats.InUse)
 
-	// 🔥 NOVA: Goroutine para monitorar saúde do pool
-	go s.monitorDBHealth()
+	// 🔥 Goroutine para monitorar saúde do pool - roda apenas uma vez
+	// (evita leak quando reconnectDB é chamado várias vezes)
+	s.monitorOnce.Do(func() {
+		go s.monitorDBHealth()
+	})
 
 	return nil
 }
@@ -1129,7 +1134,8 @@ func (s *service) connectDB() error {
 // Monitora saúde do pool e reconecta se necessário
 // ============================================
 func (s *service) monitorDBHealth() {
-	ticker := time.NewTicker(30 * time.Second)
+	// Intervalo maior para reduzir contenção no pool de 1 conexão
+	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -1149,9 +1155,9 @@ func (s *service) monitorDBHealth() {
 			}
 		}
 
-		// Log das estatísticas a cada 5 minutos
+		// Log das estatísticas do pool
 		stats := s.db.Stats()
-		if stats.OpenConnections > 10 || stats.WaitCount > 0 {
+		if stats.WaitCount > 0 {
 			s.logger.Printf("📊 DB Stats: Open=%d, InUse=%d, Idle=%d, Wait=%d, WaitDuration=%v",
 				stats.OpenConnections, stats.InUse, stats.Idle, stats.WaitCount, stats.WaitDuration)
 		}
