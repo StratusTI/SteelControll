@@ -138,6 +138,7 @@ type service struct {
 	scriptTracker   *ScriptTracker // NOVO
 	updateInProgress sync.Once     // Garante que o update só roda uma vez
 	monitorOnce      sync.Once     // Garante que o monitorDBHealth só roda uma vez
+	reconnectMu      sync.Mutex    // Serializa reconexões concorrentes ao banco
 }
 
 // PowerShell Script resultado
@@ -1169,9 +1170,26 @@ func (s *service) monitorDBHealth() {
 // Tenta reconectar ao banco de dados
 // ============================================
 func (s *service) reconnectDB() error {
-	// Fecha conexão atual
+	// Serializa reconexões concorrentes: só uma goroutine por vez
+	s.reconnectMu.Lock()
+	defer s.reconnectMu.Unlock()
+
+	// Double-check: se outra goroutine já reconectou enquanto aguardávamos
+	// o lock, o ping no pool atual vai funcionar e não precisamos reabrir.
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		err := s.db.PingContext(ctx)
+		cancel()
+		if err == nil {
+			s.logger.Println("ℹ️ Conexão já foi restaurada por outra goroutine, reusando pool existente")
+			return nil
+		}
+	}
+
+	// Fecha o pool antigo antes de abrir o novo (evita pools órfãos)
 	if s.db != nil {
 		s.db.Close()
+		s.db = nil
 	}
 
 	// Aguarda um pouco antes de reconectar
