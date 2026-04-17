@@ -990,6 +990,9 @@ func (s *service) initialize() error {
 		return fmt.Errorf("erro ao conectar ao banco: %v", err)
 	}
 
+	// Monitor de saúde do pool (apenas uma instância durante toda a vida do serviço)
+	go s.monitorDBHealth()
+
 	// Cria as tabelas necessárias
 	if err := s.createTables(); err != nil {
 		return fmt.Errorf("erro ao criar tabelas: %v", err)
@@ -1037,77 +1040,46 @@ func (s *service) connectDB() error {
 		return err
 	}
 
-	// 🔥 CONFIGURAÇÕES OTIMIZADAS DO POOL
-	s.db.SetMaxOpenConns(15)                      // Reduzido para evitar sobrecarga
-	s.db.SetMaxIdleConns(5)                       // Conexões idle prontas
-	s.db.SetConnMaxLifetime(3 * time.Minute)      // Recria conexões a cada 3min
-	s.db.SetConnMaxIdleTime(1 * time.Minute)      // Fecha idle após 1min
+	// Pool enxuto: o agente envia lotes sequenciais, então 2 conexões atendem
+	// bem a concorrência e limitam o impacto total no servidor MySQL.
+	s.db.SetMaxOpenConns(2)
+	s.db.SetMaxIdleConns(1)
+	s.db.SetConnMaxLifetime(3 * time.Minute)
+	s.db.SetConnMaxIdleTime(1 * time.Minute)
 
-	// Testa a conexão
 	if err := s.db.Ping(); err != nil {
 		return err
 	}
 
-	// Log das estatísticas do pool
 	stats := s.db.Stats()
 	s.logger.Printf("📊 DB Pool configurado: MaxOpen=%d, MaxIdle=%d, OpenConns=%d",
 		stats.MaxOpenConnections, stats.Idle, stats.InUse)
 
-	// 🔥 NOVA: Goroutine para monitorar saúde do pool
-	go s.monitorDBHealth()
-
 	return nil
 }
 
-// ============================================
-// NOVA FUNÇÃO: monitorDBHealth
-// Monitora saúde do pool e reconecta se necessário
-// ============================================
+// monitorDBHealth só observa a saúde do pool. O pacote database/sql já cuida
+// de abrir novas conexões físicas quando necessário — não fazemos reconnect
+// manual para evitar cascata de pools e goroutines duplicadas.
 func (s *service) monitorDBHealth() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		// Ping para verificar se a conexão está viva
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		err := s.db.PingContext(ctx)
 		cancel()
 
 		if err != nil {
-			s.logger.Printf("⚠️ DB Health Check FALHOU: %v - Tentando reconectar...", err)
-
-			// Tenta reconectar
-			if err := s.reconnectDB(); err != nil {
-				s.logger.Printf("❌ Falha ao reconectar: %v", err)
-			} else {
-				s.logger.Println("✅ Reconexão bem-sucedida")
-			}
+			s.logger.Printf("⚠️ DB Health Check falhou: %v", err)
 		}
 
-		// Log das estatísticas a cada 5 minutos
 		stats := s.db.Stats()
-		if stats.OpenConnections > 10 || stats.WaitCount > 0 {
+		if stats.WaitCount > 0 || stats.OpenConnections >= stats.MaxOpenConnections {
 			s.logger.Printf("📊 DB Stats: Open=%d, InUse=%d, Idle=%d, Wait=%d, WaitDuration=%v",
 				stats.OpenConnections, stats.InUse, stats.Idle, stats.WaitCount, stats.WaitDuration)
 		}
 	}
-}
-
-// ============================================
-// NOVA FUNÇÃO: reconnectDB
-// Tenta reconectar ao banco de dados
-// ============================================
-func (s *service) reconnectDB() error {
-	// Fecha conexão atual
-	if s.db != nil {
-		s.db.Close()
-	}
-
-	// Aguarda um pouco antes de reconectar
-	time.Sleep(2 * time.Second)
-
-	// Reconecta usando a mesma configuração
-	return s.connectDB()
 }
 
 // ============================================
@@ -1128,22 +1100,16 @@ func (s *service) execWithRetry(query string, args ...interface{}) (sql.Result, 
 			return result, nil
 		}
 
-		// Verifica se é erro de conexão
+		// Erro de conexão: o pool do database/sql descarta o conn ruim sozinho;
+		// só aguardamos backoff e tentamos novamente usando o mesmo pool.
 		if strings.Contains(err.Error(), "connection") ||
 		   strings.Contains(err.Error(), "broken pipe") ||
 		   strings.Contains(err.Error(), "forcibly closed") {
 			s.logger.Printf("⚠️ Erro de conexão na tentativa %d/%d: %v", i+1, maxRetries, err)
-
-			// Tenta reconectar
-			if reconErr := s.reconnectDB(); reconErr != nil {
-				s.logger.Printf("❌ Falha ao reconectar: %v", reconErr)
-			}
-
-			time.Sleep(time.Duration(i+1) * time.Second) // backoff exponencial
+			time.Sleep(time.Duration(i+1) * time.Second)
 			continue
 		}
 
-		// Outro tipo de erro, não tenta novamente
 		return result, err
 	}
 
@@ -1168,22 +1134,14 @@ func (s *service) queryWithRetry(query string, args ...interface{}) (*sql.Rows, 
 			return rows, nil
 		}
 
-		// Verifica se é erro de conexão
 		if strings.Contains(err.Error(), "connection") ||
 		   strings.Contains(err.Error(), "broken pipe") ||
 		   strings.Contains(err.Error(), "forcibly closed") {
 			s.logger.Printf("⚠️ Erro de conexão na tentativa %d/%d: %v", i+1, maxRetries, err)
-
-			// Tenta reconectar
-			if reconErr := s.reconnectDB(); reconErr != nil {
-				s.logger.Printf("❌ Falha ao reconectar: %v", reconErr)
-			}
-
 			time.Sleep(time.Duration(i+1) * time.Second)
 			continue
 		}
 
-		// Outro tipo de erro
 		return rows, err
 	}
 
