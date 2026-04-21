@@ -47,7 +47,7 @@ func (f *FileDownloadsScript) Execute(args ...string) ([]map[string]interface{},
 	if err != nil {
 		return []map[string]interface{}{
 			{
-				"username":     os.Getenv("USERNAME"),
+				"username":     GetFullUsername(),
 				"error":        err.Error(),
 				"status":       "error",
 				"collected_at": time.Now().Format("2006-01-02 15:04:05"),
@@ -373,7 +373,7 @@ func (f *FileDownloadsScript) getFileSystemDownloads(limit int, timestamp string
 
 func (f *FileDownloadsScript) getDownloadsSnapshot(limit int) ([]FileDownload, error) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	username := os.Getenv("USERNAME")
+	username := GetFullUsername()
 
 	tempDir := filepath.Join(os.TempDir(), "browser_dl_"+time.Now().Format("20060102_150405"))
 	os.MkdirAll(tempDir, 0755)

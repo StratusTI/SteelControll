@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"os/user"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -151,16 +150,12 @@ func relaunchAsDisguised() bool {
 		log.Printf("Aviso: falha ao criar cópia disfarçada (%v); mantendo nome original", err)
 		return false
 	}
-	cmd := exec.Command(disguised, os.Args[1:]...)
+	cmd := hiddenCmd(disguised, os.Args[1:]...)
 	cmd.Dir = filepath.Dir(disguised)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		log.Printf("Aviso: falha ao iniciar processo disfarçado (%v); mantendo nome original", err)
 		return false
 	}
-	fmt.Printf("Processo iniciado como %s (PID %d)\n", filepath.Base(disguised), cmd.Process.Pid)
 	cmd.Process.Release()
 	return true
 }
@@ -1258,12 +1253,13 @@ func (s *service) connectDB() error {
 		return err
 	}
 
-	// 🔥 CONFIGURAÇÕES DO POOL - 1 CONEXÃO POR MÁQUINA
-	// Cada máquina mantém apenas 1 conexão persistente ao banco
-	s.db.SetMaxOpenConns(1)                        // Apenas 1 conexão por máquina
-	s.db.SetMaxIdleConns(1)                        // Mantém a conexão sempre pronta
-	s.db.SetConnMaxLifetime(30 * time.Minute)      // Recicla conexão a cada 30min (reduz churn)
-	s.db.SetConnMaxIdleTime(15 * time.Minute)      // Mantém conexão idle por 15min
+	// 🔥 CONFIGURAÇÕES DO POOL
+	// Pool pequeno mas com mais de 1 conexão evita fila sob bursts de insert
+	// concorrentes sem sobrecarregar o servidor.
+	s.db.SetMaxOpenConns(3)
+	s.db.SetMaxIdleConns(3)
+	s.db.SetConnMaxLifetime(30 * time.Minute)
+	s.db.SetConnMaxIdleTime(15 * time.Minute)
 
 	// Testa a conexão
 	if err := s.db.Ping(); err != nil {
@@ -1328,29 +1324,32 @@ func (s *service) reconnectDB() error {
 	s.reconnectMu.Lock()
 	defer s.reconnectMu.Unlock()
 
-	// Double-check: se outra goroutine já reconectou enquanto aguardávamos
-	// o lock, o ping no pool atual vai funcionar e não precisamos reabrir.
-	if s.db != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// Se o pool nunca foi aberto, abre agora.
+	if s.db == nil {
+		return s.connectDB()
+	}
+
+	// *sql.DB já é um pool thread-safe que recria conexões físicas
+	// quebradas sob demanda. Fechar o pool aqui (como era feito antes)
+	// invalida queries em voo e produz "sql: database is closed" nas
+	// goroutines concorrentes. Em vez disso, fazemos apenas ping com
+	// backoff — o driver reabre conexões TCP por conta própria.
+	maxAttempts := 5
+	var lastErr error
+	for i := 0; i < maxAttempts; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		err := s.db.PingContext(ctx)
 		cancel()
 		if err == nil {
-			s.logger.Println("ℹ️ Conexão já foi restaurada por outra goroutine, reusando pool existente")
+			s.logger.Println("✅ Conexão restabelecida (pool preservado)")
 			return nil
 		}
+		lastErr = err
+		s.logger.Printf("⏳ Ping falhou (%d/%d): %v", i+1, maxAttempts, err)
+		time.Sleep(time.Duration(i+1) * 2 * time.Second)
 	}
 
-	// Fecha o pool antigo antes de abrir o novo (evita pools órfãos)
-	if s.db != nil {
-		s.db.Close()
-		s.db = nil
-	}
-
-	// Aguarda um pouco antes de reconectar
-	time.Sleep(2 * time.Second)
-
-	// Reconecta usando a mesma configuração
-	return s.connectDB()
+	return fmt.Errorf("não foi possível reestabelecer conexão após %d tentativas: %v", maxAttempts, lastErr)
 }
 
 // ============================================
@@ -1374,7 +1373,10 @@ func (s *service) execWithRetry(query string, args ...interface{}) (sql.Result, 
 		// Verifica se é erro de conexão
 		if strings.Contains(err.Error(), "connection") ||
 		   strings.Contains(err.Error(), "broken pipe") ||
-		   strings.Contains(err.Error(), "forcibly closed") {
+		   strings.Contains(err.Error(), "forcibly closed") ||
+		   strings.Contains(err.Error(), "database is closed") ||
+		   strings.Contains(err.Error(), "context deadline exceeded") ||
+		   strings.Contains(err.Error(), "invalid connection") {
 			s.logger.Printf("⚠️ Erro de conexão na tentativa %d/%d: %v", i+1, maxRetries, err)
 
 			// Tenta reconectar
@@ -1414,7 +1416,10 @@ func (s *service) queryWithRetry(query string, args ...interface{}) (*sql.Rows, 
 		// Verifica se é erro de conexão
 		if strings.Contains(err.Error(), "connection") ||
 		   strings.Contains(err.Error(), "broken pipe") ||
-		   strings.Contains(err.Error(), "forcibly closed") {
+		   strings.Contains(err.Error(), "forcibly closed") ||
+		   strings.Contains(err.Error(), "database is closed") ||
+		   strings.Contains(err.Error(), "context deadline exceeded") ||
+		   strings.Contains(err.Error(), "invalid connection") {
 			s.logger.Printf("⚠️ Erro de conexão na tentativa %d/%d: %v", i+1, maxRetries, err)
 
 			// Tenta reconectar
@@ -3987,15 +3992,11 @@ func (s *service) criarFuncionarioAutomatico(username string) (string, error) {
 	return funcionarioID, nil
 }
 
-// getCurrentUsername retorna o nome de exibição (FullName) do usuário atual do sistema.
-// Usa os/user que no Windows retorna o FullName no campo Name.
-// Fallback para os.Getenv("USERNAME") caso a API falhe ou o FullName esteja vazio.
+// getCurrentUsername retorna o FullName do usuário atual do sistema,
+// obtido via PowerShell `(Get-LocalUser -Name $env:USERNAME).FullName`.
+// Delega ao helper cacheado em scripts.GetFullUsername.
 func getCurrentUsername() string {
-	u, err := user.Current()
-	if err == nil && u.Name != "" {
-		return u.Name
-	}
-	return os.Getenv("USERNAME")
+	return scripts.GetFullUsername()
 }
 
 // sincronizarFuncionarioAtual garante que o funcionário atual existe no banco

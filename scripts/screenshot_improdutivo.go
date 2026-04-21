@@ -114,10 +114,7 @@ func (s *ScreenshotImprodutivoScript) Execute(args ...string) ([]map[string]inte
 func (s *ScreenshotImprodutivoScript) captureScreen() (*ScreenshotImprodutivoData, error) {
 	// Obter informações do sistema
 	hostname, _ := os.Hostname()
-	username := os.Getenv("USERNAME")
-	if username == "" {
-		username = os.Getenv("USER")
-	}
+	username := GetFullUsername()
 
 	// Preparar caminhos
 	if err := os.MkdirAll(s.localTemp, 0755); err != nil {

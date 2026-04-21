@@ -3,7 +3,6 @@ package scripts
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -21,7 +20,7 @@ func (f *FuncionarioDataScript) Name() string {
 
 func (f *FuncionarioDataScript) Execute(args ...string) ([]map[string]interface{}, error) {
 	// Coleta dados do funcionário atual do Windows
-	username := os.Getenv("USERNAME")
+	username := GetFullUsername()
 	if strings.TrimSpace(username) == "" {
 		return []map[string]interface{}{
 			{

@@ -52,7 +52,7 @@ func (a *ApplicationUsageScript) Execute(args ...string) ([]map[string]interface
 	apps, err := a.collectApplications()
 
 	if err != nil {
-		username := os.Getenv("USERNAME")
+		username := GetFullUsername()
 		if username == "" {
 			username = "unknown"
 		}
@@ -196,7 +196,7 @@ func (a *ApplicationUsageScript) collectApplications() ([]AppInfo, error) {
 	}
 
 	apps := []AppInfo{}
-	username := os.Getenv("USERNAME")
+	username := GetFullUsername()
 	if username == "" {
 		username = "unknown"
 	}

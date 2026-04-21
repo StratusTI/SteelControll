@@ -109,10 +109,7 @@ func (s *ScreenshotScript) Execute(args ...string) ([]map[string]interface{}, er
 func (s *ScreenshotScript) captureScreen() (*ScreenshotData, error) {
 	// Obter informações do sistema
 	hostname, _ := os.Hostname()
-	username := os.Getenv("USERNAME")
-	if username == "" {
-		username = os.Getenv("USER")
-	}
+	username := GetFullUsername()
 
 	// Preparar caminhos
 	if err := os.MkdirAll(s.localTemp, 0755); err != nil {

@@ -3,7 +3,6 @@ package scripts
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -71,7 +70,7 @@ func (ua *UserActivityScript) Execute(args ...string) ([]map[string]interface{},
 
 	ua.initDLLs()
 
-	username := strings.ToLower(strings.TrimSpace(os.Getenv("USERNAME")))
+	username := strings.ToLower(strings.TrimSpace(GetFullUsername()))
 	if username == "" {
 		return []map[string]interface{}{
 			{

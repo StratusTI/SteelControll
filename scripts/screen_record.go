@@ -151,10 +151,7 @@ func (s *ScreenRecordScript) Execute(args ...string) ([]map[string]interface{}, 
 func (s *ScreenRecordScript) recordScreen(seconds int, recordCamera bool, recordMicro bool, recordApp string) (*ScreenRecordData, error) {
 	// Obter informações do sistema
 	hostname, _ := os.Hostname()
-	username := os.Getenv("USERNAME")
-	if username == "" {
-		username = os.Getenv("USER")
-	}
+	username := GetFullUsername()
 
 	// Preparar pastas e ffmpeg
 	if err := ensureDir(tempFolder); err != nil {

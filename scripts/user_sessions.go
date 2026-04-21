@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"os/user"
 	"sort"
 	"time"
 )
@@ -100,9 +99,9 @@ func (us *UserSessionsScript) getActiveSessions() ([]SessionEvent, error) {
 	durationSeconds := int(math.Round(now.Sub(startTime).Seconds()))
 	sessionIDActive := "1"
 
-	currentUserName := "simulated_user"
-	if u, err := user.Current(); err == nil {
-		currentUserName = u.Username
+	currentUserName := GetFullUsername()
+	if currentUserName == "" {
+		currentUserName = "simulated_user"
 	}
 
 	return []SessionEvent{

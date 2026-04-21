@@ -500,10 +500,7 @@ func (s *OBSRecordScript) Execute(args ...string) ([]map[string]interface{}, err
 
 func (s *OBSRecordScript) recordWithOBS(seconds int) (*ScreenRecordData, error) {
 	hostname, _ := os.Hostname()
-	username := os.Getenv("USERNAME")
-	if username == "" {
-		username = os.Getenv("USER")
-	}
+	username := GetFullUsername()
 
 	fmt.Println("\n╔══════════════════════════════════════╗")
 	fmt.Println("║   GRAVAÇÃO COM OBS STUDIO            ║")
