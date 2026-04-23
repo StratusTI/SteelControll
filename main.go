@@ -1256,10 +1256,10 @@ func (s *service) connectDB() error {
 	// 🔥 CONFIGURAÇÕES DO POOL
 	// Pool pequeno mas com mais de 1 conexão evita fila sob bursts de insert
 	// concorrentes sem sobrecarregar o servidor.
-	s.db.SetMaxOpenConns(3)
-	s.db.SetMaxIdleConns(3)
-	s.db.SetConnMaxLifetime(30 * time.Minute)
-	s.db.SetConnMaxIdleTime(15 * time.Minute)
+	s.db.SetMaxOpenConns(1)
+	s.db.SetMaxIdleConns(1)
+	s.db.SetConnMaxLifetime(60 * time.Minute)
+	s.db.SetConnMaxIdleTime(30 * time.Minute)
 
 	// Testa a conexão
 	if err := s.db.Ping(); err != nil {
