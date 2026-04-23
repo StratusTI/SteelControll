@@ -1254,12 +1254,12 @@ func (s *service) connectDB() error {
 	}
 
 	// 🔥 CONFIGURAÇÕES DO POOL
-	// Pool pequeno mas com mais de 1 conexão evita fila sob bursts de insert
-	// concorrentes sem sobrecarregar o servidor.
+	// Sem conexões ociosas: toda conexão é encerrada ao fim da query para
+	// evitar acúmulo de sessões em Sleep no servidor MySQL.
 	s.db.SetMaxOpenConns(1)
-	s.db.SetMaxIdleConns(1)
-	s.db.SetConnMaxLifetime(60 * time.Minute)
-	s.db.SetConnMaxIdleTime(30 * time.Minute)
+	s.db.SetMaxIdleConns(0)
+	s.db.SetConnMaxLifetime(5 * time.Minute)
+	s.db.SetConnMaxIdleTime(0)
 
 	// Testa a conexão
 	if err := s.db.Ping(); err != nil {
