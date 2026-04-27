@@ -1256,7 +1256,7 @@ func (s *service) connectDB() error {
 	// 🔥 CONFIGURAÇÕES DO POOL
 	// Sem conexões ociosas: toda conexão é encerrada ao fim da query para
 	// evitar acúmulo de sessões em Sleep no servidor MySQL.
-	s.db.SetMaxOpenConns(1)
+	s.db.SetMaxOpenConns(2)
 	s.db.SetMaxIdleConns(0)
 	s.db.SetConnMaxLifetime(5 * time.Minute)
 	s.db.SetConnMaxIdleTime(0)
@@ -1296,15 +1296,18 @@ func (s *service) monitorDBHealth() {
 		cancel()
 
 		if err != nil {
-			s.logger.Printf("⚠️ DB Health Check FALHOU: %v - Tentando reconectar...", err)
-
-			// Tenta reconectar
-			if err := s.reconnectDB(); err != nil {
-				s.logger.Printf("❌ Falha ao reconectar: %v", err)
-			} else {
-				s.logger.Println("✅ Reconexão bem-sucedida")
-			}
-		}
+            stats := s.db.Stats()
+            if stats.InUse > 0 {
+                s.logger.Printf("⚠️ Ping falhou mas pool está ocupado (InUse=%d) — provável query lenta, não reconectando", stats.InUse)
+            } else {
+                s.logger.Printf("⚠️ DB Health Check FALHOU: %v - Tentando reconectar...", err)
+                if err := s.reconnectDB(); err != nil {
+                    s.logger.Printf("❌ Falha ao reconectar: %v", err)
+                } else {
+                    s.logger.Println("✅ Reconexão bem-sucedida")
+                }
+            }
+        }
 
 		// Log das estatísticas do pool
 		stats := s.db.Stats()
@@ -1320,21 +1323,23 @@ func (s *service) monitorDBHealth() {
 // Tenta reconectar ao banco de dados
 // ============================================
 func (s *service) reconnectDB() error {
-	// Serializa reconexões concorrentes: só uma goroutine por vez
-	s.reconnectMu.Lock()
-	defer s.reconnectMu.Unlock()
+    s.reconnectMu.Lock()
+    defer s.reconnectMu.Unlock()
 
-	// Se o pool nunca foi aberto, abre agora.
-	if s.db == nil {
-		return s.connectDB()
-	}
+    if s.db == nil {
+        return s.connectDB()
+    }
 
-	// *sql.DB já é um pool thread-safe que recria conexões físicas
-	// quebradas sob demanda. Fechar o pool aqui (como era feito antes)
-	// invalida queries em voo e produz "sql: database is closed" nas
-	// goroutines concorrentes. Em vez disso, fazemos apenas ping com
-	// backoff — o driver reabre conexões TCP por conta própria.
-	maxAttempts := 5
+    // ✅ NOVO: verifica se o pool está apenas ocupado antes de tentar reconectar
+    stats := s.db.Stats()
+    if stats.InUse > 0 {
+        s.logger.Printf("⚠️ reconnectDB: pool ocupado (%d em uso, %d aguardando) — não é falha de rede, abortando reconexão",
+            stats.InUse, stats.WaitCount)
+        return nil
+    }
+
+    // A partir daqui: pool livre mas ping falhou → aí sim é problema real de conexão
+    maxAttempts := 5
 	var lastErr error
 	for i := 0; i < maxAttempts; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -4856,7 +4861,7 @@ func (s *service) storeUserActivityData(result *ScriptResult) error {
 
 			s.logger.Printf("[DEBUG] Executando SQL MySQL...")
 
-			result, err := s.db.Exec(insertSQL,
+			result, err := s.execWithRetry(insertSQL,
 				id, machineID, username, activityType, activityDate,
 				startTime,
 				sql.NullTime{Time: endTime, Valid: !endTime.IsZero()},
@@ -4892,7 +4897,7 @@ func (s *service) storeUserActivityData(result *ScriptResult) error {
 
 			s.logger.Printf("[DEBUG] Executando SQL PostgreSQL...")
 
-			result, err := s.db.Exec(insertSQL,
+			result, err := s.execWithRetry(insertSQL,
 				id, machineID, username, activityType, activityDate,
 				startTime,
 				sql.NullTime{Time: endTime, Valid: !endTime.IsZero()},
