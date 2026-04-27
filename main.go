@@ -3941,8 +3941,12 @@ func (s *service) getAppsImprodutivos(machineID string) ([]AppImprodutivo, error
 }
 
 // getFuncionarioIDByUsername retorna o ID do funcionário pelo username
-// Se não existir, cria automaticamente
-func (s *service) getFuncionarioIDByUsername(username string) (string, error) {
+// Se não existir, cria automaticamente. Aceita o valor em qualquer case
+// (a coluna username é armazenada em minúsculas; login_name preserva o case).
+func (s *service) getFuncionarioIDByUsername(loginName string) (string, error) {
+	loginName = strings.TrimSpace(loginName)
+	usernameLower := strings.ToLower(loginName)
+
 	var funcionarioID string
 	query := "SELECT id FROM funcionarios WHERE username = ? AND ativo = 1"
 
@@ -3950,12 +3954,12 @@ func (s *service) getFuncionarioIDByUsername(username string) (string, error) {
 		query = "SELECT id FROM funcionarios WHERE username = $1 AND ativo = true"
 	}
 
-	err := s.db.QueryRow(query, username).Scan(&funcionarioID)
+	err := s.db.QueryRow(query, usernameLower).Scan(&funcionarioID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// Funcionário não existe, cria automaticamente
-			s.logger.Printf("Funcionário '%s' não encontrado, criando automaticamente...", username)
-			return s.criarFuncionarioAutomatico(username)
+			s.logger.Printf("Funcionário '%s' não encontrado, criando automaticamente...", loginName)
+			return s.criarFuncionarioAutomatico(loginName)
 		}
 		return "", err
 	}
@@ -3963,32 +3967,36 @@ func (s *service) getFuncionarioIDByUsername(username string) (string, error) {
 	return funcionarioID, nil
 }
 
-// criarFuncionarioAutomatico cria um novo funcionário automaticamente
-func (s *service) criarFuncionarioAutomatico(username string) (string, error) {
+// criarFuncionarioAutomatico cria um novo funcionário automaticamente.
+// loginName espera o formato DOMINIO\nome (case original); grava em
+// username (lowercase) e em login_name (case preservado).
+func (s *service) criarFuncionarioAutomatico(loginName string) (string, error) {
 	funcionarioID := generateUUID()
+	loginName = strings.TrimSpace(loginName)
+	usernameLower := strings.ToLower(loginName)
 
 	var insertSQL string
 	if s.config.DB.Driver == "mysql" {
 		insertSQL = `
-        INSERT INTO funcionarios (id, username, ativo, created_at, updated_at)
-        VALUES (?, ?, 1, NOW(), NOW())`
+        INSERT INTO funcionarios (id, username, login_name, ativo, created_at, updated_at)
+        VALUES (?, ?, ?, 1, NOW(), NOW())`
 
-		_, err := s.db.Exec(insertSQL, funcionarioID, strings.ToLower(strings.TrimSpace(username)))
+		_, err := s.db.Exec(insertSQL, funcionarioID, usernameLower, loginName)
 		if err != nil {
 			return "", fmt.Errorf("erro ao criar funcionário automaticamente: %v", err)
 		}
 	} else {
 		insertSQL = `
-        INSERT INTO funcionarios (id, username, ativo, created_at, updated_at)
-        VALUES ($1, $2, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+        INSERT INTO funcionarios (id, username, login_name, ativo, created_at, updated_at)
+        VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 
-		_, err := s.db.Exec(insertSQL, funcionarioID, strings.ToLower(strings.TrimSpace(username)))
+		_, err := s.db.Exec(insertSQL, funcionarioID, usernameLower, loginName)
 		if err != nil {
 			return "", fmt.Errorf("erro ao criar funcionário automaticamente: %v", err)
 		}
 	}
 
-	s.logger.Printf("✅ Funcionário '%s' criado automaticamente com ID: %s", username, funcionarioID)
+	s.logger.Printf("✅ Funcionário '%s' criado automaticamente com ID: %s", loginName, funcionarioID)
 	return funcionarioID, nil
 }
 
@@ -4000,15 +4008,17 @@ func getCurrentUsername() string {
 }
 
 // sincronizarFuncionarioAtual garante que o funcionário atual existe no banco
-// Se o username da máquina mudou, atualiza o registro existente ao invés de criar um novo
+// Se o username da máquina mudou, atualiza o registro existente ao invés de criar um novo.
+// loginName é o valor bruto retornado por getCurrentUsername() no formato DOMINIO\nome;
+// username (matching) é armazenado em minúsculas, login_name preserva o case original.
 func (s *service) sincronizarFuncionarioAtual() error {
-	username := getCurrentUsername()
-	if username == "" {
+	loginName := strings.TrimSpace(getCurrentUsername())
+	if loginName == "" {
 		return fmt.Errorf("não foi possível obter USERNAME do sistema")
 	}
 
-	username = strings.ToLower(strings.TrimSpace(username))
-	s.logger.Printf("Sincronizando funcionário: %s", username)
+	usernameLower := strings.ToLower(loginName)
+	s.logger.Printf("Sincronizando funcionário: %s", loginName)
 
 	// Primeiro verifica se já existe com o username atual
 	var funcionarioID string
@@ -4017,10 +4027,17 @@ func (s *service) sincronizarFuncionarioAtual() error {
 		query = "SELECT id FROM funcionarios WHERE username = $1 AND ativo = true"
 	}
 
-	err := s.db.QueryRow(query, username).Scan(&funcionarioID)
+	err := s.db.QueryRow(query, usernameLower).Scan(&funcionarioID)
 	if err == nil {
-		// Funcionário já existe com o username atual
-		s.logger.Printf("✅ Funcionário sincronizado: %s (ID: %s)", username, funcionarioID)
+		// Funcionário já existe - garante que login_name está atualizado (case/rename)
+		updateLogin := "UPDATE funcionarios SET login_name = ?, updated_at = NOW() WHERE id = ? AND (login_name IS NULL OR login_name <> ?)"
+		if s.config.DB.Driver == "postgres" {
+			updateLogin = "UPDATE funcionarios SET login_name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND (login_name IS NULL OR login_name <> $3)"
+		}
+		if _, errUp := s.db.Exec(updateLogin, loginName, funcionarioID, loginName); errUp != nil {
+			s.logger.Printf("⚠️ Erro ao atualizar login_name: %v", errUp)
+		}
+		s.logger.Printf("✅ Funcionário sincronizado: %s (ID: %s)", loginName, funcionarioID)
 		return nil
 	}
 
@@ -4047,26 +4064,26 @@ func (s *service) sincronizarFuncionarioAtual() error {
 
 		errOld := s.db.QueryRow(queryOld, machineID).Scan(&oldFuncionarioID, &oldUsername)
 		if errOld == nil && oldFuncionarioID != "" {
-			// Encontrou funcionário com username antigo nesta máquina - atualiza o username
-			s.logger.Printf("🔄 Username mudou de '%s' para '%s' na máquina %s, atualizando...", oldUsername, username, machineID)
+			// Encontrou funcionário com username antigo nesta máquina - atualiza username e login_name
+			s.logger.Printf("🔄 Username mudou de '%s' para '%s' na máquina %s, atualizando...", oldUsername, loginName, machineID)
 
-			updateQuery := "UPDATE funcionarios SET username = ?, updated_at = NOW() WHERE id = ?"
+			updateQuery := "UPDATE funcionarios SET username = ?, login_name = ?, updated_at = NOW() WHERE id = ?"
 			if s.config.DB.Driver == "postgres" {
-				updateQuery = "UPDATE funcionarios SET username = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
+				updateQuery = "UPDATE funcionarios SET username = $1, login_name = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3"
 			}
 
-			_, errUpdate := s.db.Exec(updateQuery, username, oldFuncionarioID)
+			_, errUpdate := s.db.Exec(updateQuery, usernameLower, loginName, oldFuncionarioID)
 			if errUpdate != nil {
 				s.logger.Printf("⚠️ Erro ao atualizar username do funcionário: %v", errUpdate)
 			} else {
-				s.logger.Printf("✅ Username do funcionário atualizado: '%s' -> '%s' (ID: %s)", oldUsername, username, oldFuncionarioID)
+				s.logger.Printf("✅ Username do funcionário atualizado: '%s' -> '%s' (ID: %s)", oldUsername, loginName, oldFuncionarioID)
 				return nil
 			}
 		}
 	}
 
 	// Nenhum funcionário associado a esta máquina, cria um novo
-	funcionarioID, err = s.criarFuncionarioAutomatico(username)
+	funcionarioID, err = s.criarFuncionarioAutomatico(loginName)
 	if err != nil {
 		return fmt.Errorf("erro ao sincronizar funcionário: %v", err)
 	}
@@ -4075,7 +4092,7 @@ func (s *service) sincronizarFuncionarioAtual() error {
 		return fmt.Errorf("erro: funcionário não foi criado")
 	}
 
-	s.logger.Printf("✅ Funcionário sincronizado: %s (ID: %s)", username, funcionarioID)
+	s.logger.Printf("✅ Funcionário sincronizado: %s (ID: %s)", loginName, funcionarioID)
 	return nil
 }
 
@@ -4178,15 +4195,13 @@ func (s *service) temHoraExtraAtivaAgora(funcionarioID string, machineID string)
 
 // verificaEBloqueiaTela verifica se o funcionário atingiu o limite de horas e bloqueia se necessário
 func (s *service) verificaEBloqueiaTela() {
-	username := getCurrentUsername()
-	if username == "" {
+	loginName := strings.TrimSpace(getCurrentUsername())
+	if loginName == "" {
 		return
 	}
 
-	username = strings.ToLower(strings.TrimSpace(username))
-
-	// 🔥 PROTEGE ACESSO AO BANCO
-	funcionarioID, err := s.getFuncionarioIDByUsername(username)
+	// 🔥 PROTEGE ACESSO AO BANCO (matching interno é case-insensitive)
+	funcionarioID, err := s.getFuncionarioIDByUsername(loginName)
 
 	if err != nil || funcionarioID == "" {
 		// Não loga erro para não poluir o log
